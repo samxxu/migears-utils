@@ -51,10 +51,9 @@ final class FlowPaginator
     /**
      * Create a first-page paginator (no cursor yet).
      *
-     * @template U
-     * @param int $pageSize
-     * @param string $cursorColumn
-     * @return self<U>
+     * The item type is unknown until items arrive, so it starts as mixed.
+     *
+     * @return self<mixed>
      */
     public static function first(int $pageSize = 10, string $cursorColumn = 'id'): self
     {
