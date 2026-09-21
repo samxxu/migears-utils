@@ -244,4 +244,41 @@ class PaginatorTest extends TestCase
         $this->assertFalse($array['hasNext']);
         $this->assertSame(1, $array['totalPages']);
     }
+
+    // --- input normalization ---
+
+    public function testZeroPageSizeIsRaisedToOne(): void
+    {
+        $paginator = new Paginator(pageSize: 0, total: 10);
+
+        $this->assertSame(1, $paginator->pageSize);
+        $this->assertSame(10, $paginator->totalPages());
+    }
+
+    public function testNegativePageSizeIsRaisedToOne(): void
+    {
+        $paginator = new Paginator(pageSize: -5, total: 10);
+
+        $this->assertSame(1, $paginator->pageSize);
+    }
+
+    public function testPageNumberBelowOneIsRaisedToOne(): void
+    {
+        $zero = new Paginator(currentPage: 0, pageSize: 10, total: 50);
+        $negative = new Paginator(currentPage: -3, pageSize: 10, total: 50);
+
+        $this->assertSame(1, $zero->currentPage);
+        $this->assertSame(0, $zero->offset());
+        $this->assertSame(1, $negative->currentPage);
+        $this->assertSame(0, $negative->offset());
+    }
+
+    public function testFirstPageIsZeroWhenThereAreNoPages(): void
+    {
+        $paginator = new Paginator(pageSize: 10, total: 0);
+
+        $this->assertSame(0, $paginator->firstPage());
+        $this->assertSame(0, $paginator->lastPage());
+        $this->assertSame(0, $paginator->totalPages());
+    }
 }

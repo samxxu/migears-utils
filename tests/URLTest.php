@@ -54,6 +54,12 @@ class URLTest extends TestCase
         new URL(scheme: 'https', host: '');
     }
 
+    public function testConstructEmptySchemeThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new URL(scheme: '', host: 'example.com');
+    }
+
     // --- parse ---
 
     public function testParseFullUrl(): void
@@ -68,19 +74,126 @@ class URLTest extends TestCase
         $this->assertSame('section', $url->fragment());
     }
 
-    public function testParseWithoutSchemeAddsHttps(): void
+    public function testParseWithoutSchemeThrows(): void
     {
-        $url = URL::parse('example.com/path');
+        $this->expectException(InvalidArgumentException::class);
+        URL::parse('example.com/path');
+    }
 
-        $this->assertSame('https', $url->scheme());
-        $this->assertSame('example.com', $url->host());
-        $this->assertSame('/path', $url->path());
+    public function testParseRejectsSchemeStartingWithDigit(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        URL::parse('1a://example.com');
     }
 
     public function testParseMalformedUrlThrows(): void
     {
         $this->expectException(InvalidArgumentException::class);
         URL::parse('http:///bad');
+    }
+
+    // --- http / https factories ---
+
+    public function testHttpFactoryFillsMissingScheme(): void
+    {
+        $url = URL::http('example.com/path');
+
+        $this->assertSame('http', $url->scheme());
+        $this->assertSame('example.com', $url->host());
+        $this->assertSame('/path', $url->path());
+    }
+
+    public function testHttpsFactoryFillsMissingScheme(): void
+    {
+        $url = URL::https('example.com/path');
+
+        $this->assertSame('https', $url->scheme());
+        $this->assertSame('example.com', $url->host());
+        $this->assertSame('/path', $url->path());
+    }
+
+    public function testFactoriesForceScheme(): void
+    {
+        $this->assertSame('https', URL::https('http://example.com')->scheme());
+        $this->assertSame('http', URL::http('https://example.com')->scheme());
+        $this->assertSame('https', URL::https('example.com')->scheme());
+        $this->assertSame('http', URL::http('example.com')->scheme());
+    }
+
+    public function testFactoryThrowsOnMalformedUrl(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        URL::https('http:///bad');
+    }
+
+    // --- userinfo ---
+
+    public function testParseExtractsUserInfo(): void
+    {
+        $url = URL::parse('https://user:secret@example.com/path');
+
+        $this->assertSame('user', $url->user());
+        $this->assertSame('secret', $url->pass());
+        $this->assertSame('example.com', $url->host());
+        $this->assertSame('/path', $url->path());
+    }
+
+    public function testParseUserInfoWithoutPassword(): void
+    {
+        $url = URL::parse('https://user@example.com');
+
+        $this->assertSame('user', $url->user());
+        $this->assertNull($url->pass());
+    }
+
+    public function testParseWithoutUserInfoLeavesItNull(): void
+    {
+        $url = URL::parse('https://example.com');
+
+        $this->assertNull($url->user());
+        $this->assertNull($url->pass());
+    }
+
+    public function testUserInfoIsPercentEncodedAndDecoded(): void
+    {
+        $url = URL::parse('https://a%40b:p%3Ass@example.com/');
+
+        $this->assertSame('a@b', $url->user());
+        $this->assertSame('p:ss', $url->pass());
+        $this->assertSame('https://a%40b:p%3Ass@example.com/', $url->toString());
+    }
+
+    public function testUserInfoRoundtripKeepsCredentials(): void
+    {
+        $original = 'https://user:secret@example.com:8080/path?q=1#frag';
+
+        $this->assertSame($original, URL::parse($original)->toString());
+    }
+
+    public function testPasswordWithoutUserThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new URL(scheme: 'https', host: 'example.com', pass: 'secret');
+    }
+
+    public function testWithUserSetsPair(): void
+    {
+        $url = new URL(scheme: 'https', host: 'example.com');
+        $newUrl = $url->withUser('user', 'secret');
+
+        $this->assertNull($url->user());
+        $this->assertSame('user', $newUrl->user());
+        $this->assertSame('secret', $newUrl->pass());
+    }
+
+    public function testWithUserNullRemovesUserInfo(): void
+    {
+        $url = new URL(scheme: 'https', host: 'example.com', user: 'user', pass: 'secret');
+        $newUrl = $url->withUser(null);
+
+        $this->assertSame('user', $url->user());
+        $this->assertNull($newUrl->user());
+        $this->assertNull($newUrl->pass());
     }
 
     // --- toString / __toString ---
@@ -238,6 +351,20 @@ class URLTest extends TestCase
         $this->assertSame(['b' => '2'], $newUrl->query());
     }
 
+    public function testParseKeepsQueryKeyCharacters(): void
+    {
+        $url = URL::parse('https://example.com/?a.b=1&c%20d=2&flag');
+
+        $this->assertSame(['a.b' => '1', 'c d' => '2', 'flag' => ''], $url->query());
+    }
+
+    public function testParseKeepsFullyEncodedKey(): void
+    {
+        $url = URL::parse('https://example.com/?a%2Bb=c%2Bd');
+
+        $this->assertSame(['a+b' => 'c+d'], $url->query());
+    }
+
     // --- Path operations ---
 
     public function testAppendPath(): void
@@ -275,5 +402,61 @@ class URLTest extends TestCase
         $url = URL::parse($original);
 
         $this->assertSame($original, $url->toString());
+    }
+
+    // --- scheme validation ---
+
+    public function testConstructWithInvalidSchemeThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        new URL(scheme: '1a', host: 'example.com');
+    }
+
+    public function testWithSchemeRejectsInvalidValue(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        (new URL(scheme: 'https', host: 'example.com'))->withScheme('1a b');
+    }
+
+    // --- path and fragment encoding ---
+
+    public function testPathIsPercentEncoded(): void
+    {
+        $url = new URL(scheme: 'https', host: 'example.com', path: '/a b/c');
+
+        $this->assertSame('/a%20b/c', $url->path());
+        $this->assertSame('https://example.com/a%20b/c', $url->toString());
+    }
+
+    public function testFragmentIsPercentEncoded(): void
+    {
+        $url = new URL(scheme: 'https', host: 'example.com', fragment: 'a b');
+
+        $this->assertSame('https://example.com/#a%20b', $url->toString());
+    }
+
+    public function testExistingEscapesSurviveEncoding(): void
+    {
+        $original = 'https://example.com/a%20b?q=1#c%20d';
+
+        $this->assertSame($original, URL::parse($original)->toString());
+    }
+
+    public function testLonePercentSignIsEncoded(): void
+    {
+        $url = new URL(scheme: 'https', host: 'example.com', path: '/100%');
+
+        $this->assertSame('/100%25', $url->path());
+    }
+
+    // --- empty userinfo ---
+
+    public function testEmptyUserInfoIsTreatedAsAbsent(): void
+    {
+        $url = new URL(scheme: 'https', host: 'example.com', user: '', pass: '');
+
+        $this->assertNull($url->user());
+        $this->assertNull($url->pass());
+        $this->assertSame('https://example.com/', $url->toString());
     }
 }

@@ -13,18 +13,33 @@ namespace MiGears\Utils;
  */
 final class Paginator
 {
+    public readonly int $pageSize;
+    public readonly int $currentPage;
+    public readonly int $total;
+
+    /** @var list<T> */
+    public readonly array $items;
+
     /**
+     * $pageSize and $currentPage are raised to their lowest valid value (1),
+     * so a page size of 0 cannot divide by zero and a page number below 1
+     * cannot produce a negative offset.
+     *
      * @param int $pageSize Number of items per page
      * @param int $currentPage Current page number (1-based)
      * @param int $total Total number of items across all pages
      * @param list<T> $items Items on the current page
      */
     public function __construct(
-        public readonly int $pageSize = 10,
-        public readonly int $currentPage = 1,
-        public readonly int $total = 0,
-        public readonly array $items = [],
+        int $pageSize = 10,
+        int $currentPage = 1,
+        int $total = 0,
+        array $items = [],
     ) {
+        $this->pageSize = max(1, $pageSize);
+        $this->currentPage = max(1, $currentPage);
+        $this->total = $total;
+        $this->items = $items;
     }
 
     /**
@@ -72,11 +87,11 @@ final class Paginator
     }
 
     /**
-     * First page number (always 1 if there are items).
+     * First page number, or 0 when there are no pages.
      */
     public function firstPage(): int
     {
-        return 1;
+        return $this->totalPages() === 0 ? 0 : 1;
     }
 
     /**

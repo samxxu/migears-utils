@@ -14,7 +14,20 @@ namespace MiGears\Utils;
  */
 final class FlowPaginator
 {
+    public readonly int $pageSize;
+    public readonly mixed $cursor;
+    public readonly string $cursorColumn;
+
+    /** @var list<T> */
+    public readonly array $items;
+
+    public readonly bool $hasMore;
+
     /**
+     * $hasMore is forced to false when $items is empty — an empty page ends the
+     * sequence. Reporting more pages while holding no cursor would send the
+     * next fetch back to the start, since a null cursor means "from the top".
+     *
      * @param int $pageSize Number of items per page
      * @param mixed $cursor Cursor value (typically last item's ID), null means "from start"
      * @param string $cursorColumn Name of the column used for cursor (e.g. "id")
@@ -22,12 +35,17 @@ final class FlowPaginator
      * @param bool $hasMore Whether there are more items after this page
      */
     public function __construct(
-        public readonly int $pageSize = 10,
-        public readonly mixed $cursor = null,
-        public readonly string $cursorColumn = 'id',
-        public readonly array $items = [],
-        public readonly bool $hasMore = false,
+        int $pageSize = 10,
+        mixed $cursor = null,
+        string $cursorColumn = 'id',
+        array $items = [],
+        bool $hasMore = false,
     ) {
+        $this->pageSize = $pageSize;
+        $this->cursor = $cursor;
+        $this->cursorColumn = $cursorColumn;
+        $this->items = $items;
+        $this->hasMore = $hasMore && $items !== [];
     }
 
     /**
@@ -84,13 +102,7 @@ final class FlowPaginator
             return null;
         }
 
-        $lastItem = $this->items[array_key_last($this->items)];
-
-        return match (true) {
-            is_array($lastItem) => $lastItem[$this->cursorColumn] ?? null,
-            is_object($lastItem) => $lastItem->{$this->cursorColumn} ?? null,
-            default => null,
-        };
+        return self::cursorFrom($this->items[array_key_last($this->items)], $this->cursorColumn);
     }
 
     /**
@@ -124,16 +136,9 @@ final class FlowPaginator
      */
     public function nextPage(array $items, bool $hasMore = false): self
     {
-        $lastItem = $items === [] ? null : $items[array_key_last($items)];
-        $nextCursor = null;
-
-        if ($lastItem !== null && $hasMore) {
-            $nextCursor = match (true) {
-                is_array($lastItem) => $lastItem[$this->cursorColumn] ?? null,
-                is_object($lastItem) => $lastItem->{$this->cursorColumn} ?? null,
-                default => null,
-            };
-        }
+        $nextCursor = $items === [] || !$hasMore
+            ? null
+            : self::cursorFrom($items[array_key_last($items)], $this->cursorColumn);
 
         return new self(
             pageSize: $this->pageSize,
@@ -142,6 +147,18 @@ final class FlowPaginator
             items: $items,
             hasMore: $hasMore,
         );
+    }
+
+    /**
+     * Read the cursor value out of an item, which may be an array or an object.
+     */
+    private static function cursorFrom(mixed $item, string $column): mixed
+    {
+        return match (true) {
+            is_array($item) => $item[$column] ?? null,
+            is_object($item) => $item->{$column} ?? null,
+            default => null,
+        };
     }
 
     /**

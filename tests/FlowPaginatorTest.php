@@ -275,4 +275,23 @@ class FlowPaginatorTest extends TestCase
         $this->assertFalse($array['hasMore']);
         $this->assertSame([], $array['items']);
     }
+
+    // --- empty pages ---
+
+    public function testEmptyItemsForceHasMoreOff(): void
+    {
+        $paginator = new FlowPaginator(items: [], hasMore: true);
+
+        $this->assertFalse($paginator->hasMore);
+        $this->assertNull($paginator->nextCursor());
+    }
+
+    public function testNextPageWithEmptyItemsAndHasMoreKeepsCursorNull(): void
+    {
+        $next = FlowPaginator::first(pageSize: 5)->nextPage([], true);
+
+        $this->assertNull($next->cursor);
+        $this->assertFalse($next->hasMore);
+        $this->assertNull($next->nextCursor());
+    }
 }

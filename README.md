@@ -2,18 +2,15 @@
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 
-Minimalist utility collection for PHP. Six classes covering strings, arrays, dates, URLs, and pagination — no dependencies, no magic.
+Minimalist utility collection for PHP. Three classes covering URLs and pagination — no dependencies, no magic.
 
 Each class is small enough to read in a few minutes. Use what you need, ignore the rest.
 
-> Previously `migears/common` — renamed to `migears/utils` in v2.0.
+> Previously `migears/common`. Renamed to `migears/utils` in v2.0 — a release that also dropped `Str` and `Arr`, which duplicated helpers belonging to the upstream libraries they were modeled on. Reach for `illuminate/support`, `symfony/string`, or your own helper set instead.
 
 ## Features
 
-- **`Str`** — Multibyte-safe string utilities (slug, truncate, camel/snake/studly, random, ascii, etc.)
-- **`Arr`** — Array utilities with dot notation, pluck, where, first/last, flatten, etc.
-- **`Date`** — Date/time with relative time, human-friendly formatting, timezone handling
-- **`URL`** — Immutable URL builder with query parameter manipulation
+- **`URL`** — Immutable URL builder for absolute URLs: explicit schemes, userinfo, and query parameter manipulation
 - **`Paginator`** — Offset-based pagination DTO with `toArray()` for JSON
 - **`FlowPaginator`** — Cursor-based (infinite scroll) pagination DTO
 
@@ -23,77 +20,18 @@ Each class is small enough to read in a few minutes. Use what you need, ignore t
 composer require migears/utils
 ```
 
-Requires: PHP 8.1+, ext-mbstring.
+Requires: PHP 8.1+. No extensions.
 
 ## Quick Start
 
-### Str — String Utilities
-
-```php
-use MiGears\Utils\Str;
-
-Str::slug('Hello World!');                 // 'hello-world'
-Str::camel('user_profile');                // 'userProfile'
-Str::studly('user_profile');               // 'UserProfile'
-Str::snake('userProfile');                 // 'user_profile'
-Str::truncate('Long text here', 10);       // 'Long te...'
-Str::random(16);                           // cryptographically secure random string
-Str::ascii('café');                        // 'cafe'
-Str::contains('Hello World', 'World');     // true
-Str::startsWith('Hello', 'He');            // true
-Str::endsWith('Hello', 'llo');             // true
-Str::reverse('abc');                       // 'cba'
-Str::length('你好');                        // 2 (multibyte-safe)
-```
-
-### Arr — Array Utilities
-
-```php
-use MiGears\Utils\Arr;
-
-// Dot notation access
-Arr::get($config, 'database.host', 'localhost');
-Arr::set($config, 'database.port', 3306);
-Arr::has($config, 'database.password');
-
-// Functional operations
-Arr::pluck($users, 'name');                 // ['Alice', 'Bob']
-Arr::pluck($users, 'email', 'id');          // [1 => 'alice@...', 2 => 'bob@...']
-Arr::first([1, 2, 3], fn($v) => $v > 1);   // 2
-Arr::last([1, 2, 3], fn($v) => $v < 3);    // 2
-Arr::where([1, 2, 3, 4], fn($v) => $v > 2); // [3, 4]
-Arr::only($data, ['name', 'email']);        // whitelist keys
-Arr::except($data, ['password']);           // blacklist keys
-Arr::flatten([1, [2, [3]]]);                // [1, 2, 3]
-Arr::every([2, 4, 6], fn($v) => $v % 2 === 0); // true
-Arr::some([1, 2, 3], fn($v) => $v > 2);     // true
-Arr::unique([1, 2, 2, 3]);                  // [1, 2, 3]
-```
-
-### Date — Date/Time Utilities
-
-```php
-use MiGears\Utils\Date;
-
-$date = new Date('2024-01-15 10:30:00', 'Asia/Shanghai');
-
-$date->toDateString();      // '2024-01-15'
-$date->toTimeString();      // '2024-01-15 10:30'
-$date->format('M j, Y');    // 'Jan 15, 2024'
-$date->relativeTime();      // '2 hours ago' / 'in 3 days'
-$date->humanize();          // 'Today 10:30' / 'Yesterday 09:15' / 'Monday 14:30'
-$date->isToday();           // bool
-$date->isYesterday();       // bool
-$date->isTomorrow();        // bool
-$date->dayOfWeek();         // 0 (Sun) - 6 (Sat)
-$date->withTimezone('UTC'); // new Date instance
-```
-
 ### URL — Immutable URL Builder
+
+`URL` represents absolute URLs only. Both the scheme and the host are required, and the scheme is never guessed.
 
 ```php
 use MiGears\Utils\URL;
 
+// A string carrying its own scheme parses as-is
 $url = URL::parse('https://example.com/path?page=1');
 
 $url->scheme();             // 'https'
@@ -103,8 +41,44 @@ $url->query();              // ['page' => '1']
 $url->queryParam('page');   // '1'
 $url->isHttps();            // true
 
-// Immutable — all with* methods return new instances
-$url = URL::parse('https://example.com')
+// http() and https() force their scheme
+URL::https('example.com/path');    // https://example.com/path
+URL::http('https://example.com');  // http://example.com/
+
+// Without a scheme and without a factory, the string is rejected
+URL::parse('example.com/path');    // throws InvalidArgumentException
+```
+
+`http()` and `https()` override whatever scheme the string carries, so `URL::https('http://example.com')` produces `https://example.com/`.
+
+Credentials are kept rather than dropped, encoded when written out and decoded when read back:
+
+```php
+$secure = URL::parse('https://user:secret@example.com/');
+
+$secure->user();   // 'user'
+$secure->pass();   // 'secret'
+echo $secure;      // 'https://user:secret@example.com/'
+
+$secure->withUser(null)->toString();   // 'https://example.com/'
+```
+
+A password without a user is rejected — `new URL(scheme: 'https', host: 'example.com', pass: 'secret')` throws. An empty user or password counts as absent, so it never reaches the output as `https://@example.com/`.
+
+The scheme, path, and fragment are normalized as they come in:
+
+```php
+new URL(scheme: '1a', host: 'example.com');      // throws — not a valid scheme
+(new URL(scheme: 'https', host: 'a.com'))->withPath('/a b/c')->toString();
+// 'https://a.com/a%20b/c'
+```
+
+Characters that cannot appear literally in a path or fragment are percent-encoded, while existing escape sequences are left untouched — an already-encoded URL survives a parse-and-rebuild cycle unchanged.
+
+All `with*` methods return new instances:
+
+```php
+$url = URL::https('example.com')
     ->withPath('/users')
     ->withQuery(['page' => 1, 'limit' => 20])
     ->withFragment('top')
@@ -112,6 +86,15 @@ $url = URL::parse('https://example.com')
 
 echo $url;  // 'https://example.com/users/search?page=1&limit=20#top'
 ```
+
+Query keys keep their original characters. Unlike `parse_str()`, dots and spaces are not rewritten to underscores:
+
+```php
+URL::parse('https://example.com/?a.b=1&c%20d=2')->query();
+// ['a.b' => '1', 'c d' => '2']
+```
+
+Bracket notation is not expanded, so every key is flat and every value is a scalar.
 
 ### Paginator — Offset-Based Pagination
 
@@ -134,6 +117,8 @@ $paginator->offset();       // 10
 $paginator->toArray();      // for JSON response
 ```
 
+`pageSize` and `currentPage` are raised to 1 when they arrive lower, so a page size of 0 cannot divide by zero and a page number below 1 cannot produce a negative offset. `firstPage()` and `lastPage()` both return 0 when there are no pages.
+
 ### FlowPaginator — Cursor-Based Pagination
 
 ```php
@@ -149,81 +134,28 @@ $next->hasMore;             // whether there are more pages
 $next->toArray();           // for JSON response
 ```
 
+An empty page ends the sequence: passing `hasMore: true` together with no items stores `hasMore` as false. Otherwise the paginator would claim more pages while holding a null cursor, and the next fetch would restart from the first page.
+
 ## API Reference
-
-### Str
-
-| Method | Description |
-|--------|-------------|
-| `startsWith($haystack, $needle)` | Check if string starts with substring |
-| `endsWith($haystack, $needle)` | Check if string ends with substring |
-| `contains($haystack, $needle)` | Check if string contains substring |
-| `length($string, $encoding = null)` | Multibyte-safe length |
-| `slug($string, $separator = '-')` | URL-friendly slug |
-| `truncate($string, $length = 100, $ellipsis = '...')` | Truncate with ellipsis |
-| `words($string, $words = 100, $end = '...')` | Limit word count |
-| `camel($string)` | Convert to camelCase |
-| `studly($string)` | Convert to StudlyCase |
-| `snake($string, $delimiter = '_')` | Convert to snake_case |
-| `kebab($string)` | Convert to kebab-case |
-| `ucfirst($string)` | Multibyte-safe ucfirst |
-| `lcfirst($string)` | Multibyte-safe lcfirst |
-| `ascii($string)` | Transliterate to ASCII |
-| `random($length = 16)` | Cryptographically secure random string |
-| `reverse($string)` | Multibyte-safe reverse |
-
-### Arr
-
-| Method | Description |
-|--------|-------------|
-| `get($array, $key, $default = null)` | Get item by dot notation |
-| `set(&$array, $key, $value)` | Set item by dot notation |
-| `has($array, $key)` | Check existence by dot notation |
-| `pluck($array, $value, $key = null)` | Extract column values |
-| `first($array, $callback = null, $default = null)` | First matching element |
-| `last($array, $callback = null, $default = null)` | Last matching element |
-| `where($array, $callback, $preserveKeys = false)` | Filter by callback |
-| `only($array, $keys)` | Whitelist keys |
-| `except($array, $keys)` | Blacklist keys |
-| `flatten($array, $depth = 0)` | Flatten nested array |
-| `collapse($array)` | Collapse one level |
-| `every($array, $callback)` | All elements pass? |
-| `some($array, $callback)` | Any element passes? |
-| `unique($array)` | Unique values (preserves order) |
-
-### Date
-
-| Method | Description |
-|--------|-------------|
-| `new Date($input = null, $timezone = null)` | Create from timestamp/string/DateTime |
-| `Date::fromTimestamp($ts, $tz = null)` | Create from Unix timestamp |
-| `Date::fromString($str, $tz = null)` | Create from datetime string |
-| `toDateTime()` | Get DateTimeImmutable |
-| `timestamp()` | Get Unix timestamp |
-| `toDateString()` | Format: Y-m-d |
-| `toTimeString()` | Format: Y-m-d H:i |
-| `format($pattern)` | Custom format |
-| `dayOfWeek()` | 0 (Sun) - 6 (Sat) |
-| `isToday()` / `isYesterday()` / `isTomorrow()` | Comparison |
-| `relativeTime()` | Human-readable relative time |
-| `humanize()` | Friendly datetime string |
-| `withTimezone($tz)` | Convert timezone (immutable) |
-| `timezone()` | Get current timezone |
 
 ### URL
 
 | Method | Description |
 |--------|-------------|
-| `new URL($scheme, $host, $port, $path, $query, $fragment)` | Constructor |
-| `URL::parse($url)` | Parse from string |
+| `new URL($scheme, $host, $port, $path, $query, $fragment, $user, $pass)` | Constructor — scheme and host required |
+| `URL::parse($url)` | Parse a string that carries its own scheme |
+| `URL::http($url)` | Parse and force the http scheme |
+| `URL::https($url)` | Parse and force the https scheme |
 | `scheme()` / `host()` / `port()` / `path()` | Get parts |
 | `query()` / `queryParam($key, $default)` | Query params |
 | `fragment()` | Get fragment |
+| `user()` / `pass()` | Get userinfo, percent-decoded |
 | `withScheme($s)` / `withHost($h)` / `withPort($p)` | Modify (immutable) |
 | `withPath($path)` / `appendPath($segment)` | Modify path |
 | `withQuery($params)` / `withQueryParam($k, $v)` | Modify query |
 | `withoutQueryParam($key)` | Remove query param |
 | `withFragment($f)` | Modify fragment |
+| `withUser($user, $pass)` | Set userinfo — null removes it |
 | `isHttps()` | Check HTTPS |
 | `toString()` / `__toString()` | Build URL string |
 
@@ -253,15 +185,19 @@ $next->toArray();           // for JSON response
 | `nextPage($items, $hasMore)` | Advance to next cursor |
 | `toArray()` | Convert to array for JSON |
 
+## Upgrading to 2.0
+
+The package was `migears/common` before this release. `Str` and `Arr` are gone, `URL` no longer guesses protocols, and `Date` moved to `migears/i18n` as `LocalizedDate`. See [CHANGELOG.md](CHANGELOG.md) for the full list and migration steps.
+
 ## Design Philosophy
 
 miGears Utils follows the miGears philosophy: **minimal, readable, and useful**.
 
-- **Six focused classes** — each does one thing well
+- **Three focused classes** — each does one thing well
 - **No inheritance chains** — everything is final
 - **Static methods where it makes sense** — no unnecessary instantiation
 - **Immutable where it matters** — Date and URL never mutate
-- **Small enough to read** — no class exceeds 200 lines
+- **Small enough to read** — the longest class stays under 350 lines
 
 ## License
 
@@ -273,18 +209,15 @@ MIT
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue)
 
-极简 PHP 工具集。六个类，涵盖字符串、数组、日期、URL 和分页——无依赖，零魔法。
+极简 PHP 工具集。三个类，涵盖 URL 和分页——无依赖，零魔法。
 
 每个类都小到可以几分钟内读完。用你需要的，忽略其余的。
 
-> 前身为 `migears/common` — v2.0 起更名为 `migears/utils`。
+> 前身为 `migears/common`，v2.0 更名为 `migears/utils`。同一版本移除了 `Str` 与 `Arr`——它们复刻了本该由上游库提供的工具方法。需要时请直接使用 `illuminate/support`、`symfony/string`，或你自己的工具集。
 
 ## 特性
 
-- **`Str`** — 多字节安全的字符串工具（slug、truncate、camel/snake/studly、random、ascii 等）
-- **`Arr`** — 数组工具，支持点号访问、pluck、where、first/last、flatten 等
-- **`Date`** — 日期时间处理，支持相对时间、人性化格式、时区转换
-- **`URL`** — 不可变 URL 构建器，支持查询参数操作
+- **`URL`** — 面向绝对 URL 的不可变构建器：协议显式化、支持凭据与查询参数操作
 - **`Paginator`** — 基于偏移量的分页 DTO，带 `toArray()` 支持 JSON
 - **`FlowPaginator`** — 基于游标（无限滚动）的分页 DTO
 
@@ -294,77 +227,18 @@ MIT
 composer require migears/utils
 ```
 
-要求：PHP 8.1+，ext-mbstring。
+要求：PHP 8.1+，无扩展依赖。
 
 ## 快速开始
 
-### Str — 字符串工具
-
-```php
-use MiGears\Utils\Str;
-
-Str::slug('Hello World!');                 // 'hello-world'
-Str::camel('user_profile');                // 'userProfile'
-Str::studly('user_profile');               // 'UserProfile'
-Str::snake('userProfile');                 // 'user_profile'
-Str::truncate('长文本在这里', 10);            // '长文本在...'
-Str::random(16);                           // 加密安全的随机字符串
-Str::ascii('café');                        // 'cafe'
-Str::contains('Hello World', 'World');     // true
-Str::startsWith('Hello', 'He');            // true
-Str::endsWith('Hello', 'llo');             // true
-Str::reverse('abc');                       // 'cba'
-Str::length('你好');                        // 2 (多字节安全)
-```
-
-### Arr — 数组工具
-
-```php
-use MiGears\Utils\Arr;
-
-// 点号访问
-Arr::get($config, 'database.host', 'localhost');
-Arr::set($config, 'database.port', 3306);
-Arr::has($config, 'database.password');
-
-// 函数式操作
-Arr::pluck($users, 'name');                 // ['Alice', 'Bob']
-Arr::pluck($users, 'email', 'id');          // [1 => 'alice@...', 2 => 'bob@...']
-Arr::first([1, 2, 3], fn($v) => $v > 1);   // 2
-Arr::last([1, 2, 3], fn($v) => $v < 3);    // 2
-Arr::where([1, 2, 3, 4], fn($v) => $v > 2); // [3, 4]
-Arr::only($data, ['name', 'email']);        // 白名单键
-Arr::except($data, ['password']);           // 黑名单键
-Arr::flatten([1, [2, [3]]]);                // [1, 2, 3]
-Arr::every([2, 4, 6], fn($v) => $v % 2 === 0); // true
-Arr::some([1, 2, 3], fn($v) => $v > 2);     // true
-Arr::unique([1, 2, 2, 3]);                  // [1, 2, 3]
-```
-
-### Date — 日期时间工具
-
-```php
-use MiGears\Utils\Date;
-
-$date = new Date('2024-01-15 10:30:00', 'Asia/Shanghai');
-
-$date->toDateString();      // '2024-01-15'
-$date->toTimeString();      // '2024-01-15 10:30'
-$date->format('M j, Y');    // 'Jan 15, 2024'
-$date->relativeTime();      // '2小时前' / '3天后' (英文输出)
-$date->humanize();          // 'Today 10:30' / 'Yesterday 09:15'
-$date->isToday();           // bool
-$date->isYesterday();       // bool
-$date->isTomorrow();        // bool
-$date->dayOfWeek();         // 0 (周日) - 6 (周六)
-$date->withTimezone('UTC'); // 新的 Date 实例
-```
-
 ### URL — 不可变 URL 构建器
+
+`URL` 只表示绝对 URL。scheme 与 host 都是必填，且 scheme 从不被猜测。
 
 ```php
 use MiGears\Utils\URL;
 
+// 自带 scheme 的字符串按原样解析
 $url = URL::parse('https://example.com/path?page=1');
 
 $url->scheme();             // 'https'
@@ -374,8 +248,44 @@ $url->query();              // ['page' => '1']
 $url->queryParam('page');   // '1'
 $url->isHttps();            // true
 
-// 不可变 — 所有 with* 方法返回新实例
-$url = URL::parse('https://example.com')
+// http() 与 https() 强制指定协议
+URL::https('example.com/path');    // https://example.com/path
+URL::http('https://example.com');  // http://example.com/
+
+// 既没有 scheme 也没走工厂方法，直接拒绝
+URL::parse('example.com/path');    // 抛出 InvalidArgumentException
+```
+
+`http()` 与 `https()` 会覆盖字符串里原有的 scheme，因此 `URL::https('http://example.com')` 产出 `https://example.com/`。
+
+凭据不再被丢弃，输出时编码、读入时解码：
+
+```php
+$secure = URL::parse('https://user:secret@example.com/');
+
+$secure->user();   // 'user'
+$secure->pass();   // 'secret'
+echo $secure;      // 'https://user:secret@example.com/'
+
+$secure->withUser(null)->toString();   // 'https://example.com/'
+```
+
+只有密码没有用户名会被拒绝——`new URL(scheme: 'https', host: 'example.com', pass: 'secret')` 抛异常。空字符串的用户名或密码等同于未设置，不会输出成 `https://@example.com/`。
+
+scheme、path、fragment 在入口处即做规范化：
+
+```php
+new URL(scheme: '1a', host: 'example.com');      // 抛出 — 不是合法 scheme
+(new URL(scheme: 'https', host: 'a.com'))->withPath('/a b/c')->toString();
+// 'https://a.com/a%20b/c'
+```
+
+路径与片段中不能直接出现的字符会被百分号编码，已有的转义序列则原样保留——一个已编码的 URL 经过解析再重建后不会改变。
+
+所有 `with*` 方法返回新实例：
+
+```php
+$url = URL::https('example.com')
     ->withPath('/users')
     ->withQuery(['page' => 1, 'limit' => 20])
     ->withFragment('top')
@@ -383,6 +293,15 @@ $url = URL::parse('https://example.com')
 
 echo $url;  // 'https://example.com/users/search?page=1&limit=20#top'
 ```
+
+查询参数的键保持原样。与 `parse_str()` 不同，点和空格不会被改写成下划线：
+
+```php
+URL::parse('https://example.com/?a.b=1&c%20d=2')->query();
+// ['a.b' => '1', 'c d' => '2']
+```
+
+方括号写法不做展开，因此每个键都是扁平的，每个值都是标量。
 
 ### Paginator — 偏移量分页
 
@@ -405,6 +324,8 @@ $paginator->offset();       // 10
 $paginator->toArray();      // 用于 JSON 响应
 ```
 
+`pageSize` 与 `currentPage` 传入小于 1 的值时会被抬到 1，因此 pageSize 为 0 不会除零崩溃，页码小于 1 也不会产生负的 offset。无页可翻时 `firstPage()` 与 `lastPage()` 都返回 0。
+
 ### FlowPaginator — 游标分页
 
 ```php
@@ -420,81 +341,28 @@ $next->hasMore;             // 是否还有更多页
 $next->toArray();           // 用于 JSON 响应
 ```
 
+空页即序列结束：items 为空时即使传入 `hasMore: true` 也会存为 false。否则分页器会一边声称还有更多页、一边握着 null 游标，下一次取数会回到首页。
+
 ## API 参考
-
-### Str
-
-| 方法 | 说明 |
-|------|------|
-| `startsWith($haystack, $needle)` | 检查字符串是否以子串开头 |
-| `endsWith($haystack, $needle)` | 检查字符串是否以子串结尾 |
-| `contains($haystack, $needle)` | 检查字符串是否包含子串 |
-| `length($string, $encoding = null)` | 多字节安全长度 |
-| `slug($string, $separator = '-')` | URL 友好的 slug |
-| `truncate($string, $length = 100, $ellipsis = '...')` | 截断加省略号 |
-| `words($string, $words = 100, $end = '...')` | 限制词数 |
-| `camel($string)` | 转为 camelCase |
-| `studly($string)` | 转为 StudlyCase |
-| `snake($string, $delimiter = '_')` | 转为 snake_case |
-| `kebab($string)` | 转为 kebab-case |
-| `ucfirst($string)` | 多字节安全首字母大写 |
-| `lcfirst($string)` | 多字节安全首字母小写 |
-| `ascii($string)` | 转写为 ASCII |
-| `random($length = 16)` | 加密安全随机字符串 |
-| `reverse($string)` | 多字节安全反转 |
-
-### Arr
-
-| 方法 | 说明 |
-|------|------|
-| `get($array, $key, $default = null)` | 点号获取元素 |
-| `set(&$array, $key, $value)` | 点号设置元素 |
-| `has($array, $key)` | 点号检查存在性 |
-| `pluck($array, $value, $key = null)` | 提取列值 |
-| `first($array, $callback = null, $default = null)` | 第一个匹配元素 |
-| `last($array, $callback = null, $default = null)` | 最后一个匹配元素 |
-| `where($array, $callback, $preserveKeys = false)` | 按回调过滤 |
-| `only($array, $keys)` | 白名单键 |
-| `except($array, $keys)` | 黑名单键 |
-| `flatten($array, $depth = 0)` | 展平嵌套数组 |
-| `collapse($array)` | 展平一层 |
-| `every($array, $callback)` | 全部通过？ |
-| `some($array, $callback)` | 任一通过？ |
-| `unique($array)` | 去重（保持顺序） |
-
-### Date
-
-| 方法 | 说明 |
-|------|------|
-| `new Date($input = null, $timezone = null)` | 从时间戳/字符串/DateTime 创建 |
-| `Date::fromTimestamp($ts, $tz = null)` | 从 Unix 时间戳创建 |
-| `Date::fromString($str, $tz = null)` | 从日期时间字符串创建 |
-| `toDateTime()` | 获取 DateTimeImmutable |
-| `timestamp()` | 获取 Unix 时间戳 |
-| `toDateString()` | 格式：Y-m-d |
-| `toTimeString()` | 格式：Y-m-d H:i |
-| `format($pattern)` | 自定义格式 |
-| `dayOfWeek()` | 0 (周日) - 6 (周六) |
-| `isToday()` / `isYesterday()` / `isTomorrow()` | 比较 |
-| `relativeTime()` | 人性化相对时间 |
-| `humanize()` | 友好日期时间字符串 |
-| `withTimezone($tz)` | 转换时区（不可变） |
-| `timezone()` | 获取当前时区 |
 
 ### URL
 
 | 方法 | 说明 |
 |------|------|
-| `new URL($scheme, $host, $port, $path, $query, $fragment)` | 构造函数 |
-| `URL::parse($url)` | 从字符串解析 |
+| `new URL($scheme, $host, $port, $path, $query, $fragment, $user, $pass)` | 构造函数 — scheme 与 host 必填 |
+| `URL::parse($url)` | 解析自带 scheme 的字符串 |
+| `URL::http($url)` | 解析并强制 http 协议 |
+| `URL::https($url)` | 解析并强制 https 协议 |
 | `scheme()` / `host()` / `port()` / `path()` | 获取各部分 |
 | `query()` / `queryParam($key, $default)` | 查询参数 |
 | `fragment()` | 获取片段 |
+| `user()` / `pass()` | 获取凭据，已做百分号解码 |
 | `withScheme($s)` / `withHost($h)` / `withPort($p)` | 修改（不可变） |
 | `withPath($path)` / `appendPath($segment)` | 修改路径 |
 | `withQuery($params)` / `withQueryParam($k, $v)` | 修改查询参数 |
 | `withoutQueryParam($key)` | 移除查询参数 |
 | `withFragment($f)` | 修改片段 |
+| `withUser($user, $pass)` | 设置凭据 — 传 null 则移除 |
 | `isHttps()` | 检查 HTTPS |
 | `toString()` / `__toString()` | 构建 URL 字符串 |
 
@@ -524,15 +392,19 @@ $next->toArray();           // 用于 JSON 响应
 | `nextPage($items, $hasMore)` | 前进到下一个游标 |
 | `toArray()` | 转为数组用于 JSON |
 
+## 升级到 2.0
+
+本版本之前包名为 `migears/common`。`Str` 与 `Arr` 已移除，`URL` 不再猜测协议，`Date` 已迁至 `migears/i18n` 并更名为 `LocalizedDate`。完整清单与迁移步骤见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 设计哲学
 
 miGears Utils 遵循 miGears 设计哲学：**极简、可读、实用**。
 
-- **六个专注的类** — 每个类做好一件事
+- **三个专注的类** — 每个类做好一件事
 - **没有继承链** — 所有类都是 final
 - **该静态就静态** — 不需要的实例化就省了
 - **该不可变就不可变** — Date 和 URL 永不修改自身
-- **小到可以读完** — 没有类超过 200 行
+- **小到可以读完** — 最长的类不到 350 行
 
 ## 许可证
 

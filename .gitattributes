@@ -1,0 +1,10 @@
+# Keep line endings predictable across platforms.
+* text=auto eol=lf
+
+# Leave these out of the dist archive Composer builds for consumers.
+/.github            export-ignore
+/tests              export-ignore
+/.gitattributes     export-ignore
+/.gitignore         export-ignore
+/phpstan.neon       export-ignore
+/phpunit.xml.dist   export-ignore
