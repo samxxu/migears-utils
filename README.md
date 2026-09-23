@@ -8,6 +8,10 @@ Each class is small enough to read in a few minutes. Use what you need, ignore t
 
 > Previously `migears/common`. Renamed to `migears/utils` in v2.0 — a release that also dropped `Str` and `Arr`, which duplicated helpers belonging to the upstream libraries they were modeled on. Reach for `illuminate/support`, `symfony/string`, or your own helper set instead.
 
+> **Background**: miGears is the open-source successor of **TinyGears**, a
+> self-developed PHP framework. It was renamed and open-sourced recently because
+> the name *TinyGears* is already taken in the open-source community.
+
 ## Features
 
 - **`URL`** — Immutable URL builder for absolute URLs: explicit schemes, userinfo, and query parameter manipulation
