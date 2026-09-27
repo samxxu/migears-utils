@@ -632,4 +632,24 @@ class URLTest extends TestCase
         // merge-then-normalise must not turn a delete back into a stored null
         $this->assertArrayNotHasKey('a', $url->withQuery(['a' => null, 'b' => '2'])->query());
     }
+
+    public function testQueryKeepsPhpTypesWhileToStringSerializesThem(): void
+    {
+        $url = new URL('https', 'example.com', query: ['flag' => true, 'n' => 5]);
+
+        // Two documented representations of one parameter set: query() is the
+        // map as set, toString() is its query-string form.
+        $this->assertSame(['flag' => true, 'n' => 5], $url->query());
+        $this->assertSame('https://example.com/?flag=1&n=5', $url->toString());
+    }
+
+    public function testFalsyScalarsAreStillParameters(): void
+    {
+        // The counterpart of the null rule: false, 0 and '' are values, and
+        // nothing else may be dropped along with null.
+        $url = new URL('https', 'example.com', query: ['flag' => false, 'n' => 0, 's' => '']);
+
+        $this->assertSame(['flag' => false, 'n' => 0, 's' => ''], $url->query());
+        $this->assertSame('https://example.com/?flag=0&n=0&s=', $url->toString());
+    }
 }

@@ -85,6 +85,8 @@ The host accepts an RFC 3986 reg-name (a hostname, an IPv4 address, or the permi
 
 A `null` query value means the parameter is absent, everywhere: the constructor drops it and `withQuery()` deletes the key with it, so `query()` never reports a key that the built string omits.
 
+Values keep their PHP type in `query()` — `['flag' => true, 'n' => 5]` comes back as it went in — while the built string carries their query-string form, `?flag=1&n=5`. The same parameters, two representations: `query()` is the map you set, `toString()` is its serialization. Pass strings if you need the two to be identical.
+
 All `with*` methods return new instances:
 
 ```php
@@ -297,6 +299,8 @@ new URL(scheme: 'https', host: 'a.com', port: 70000);  // 抛出 — 不是可�
 host 接受 RFC 3986 的 reg-name（主机名、IPv4，或更宽松的 unreserved/sub-delims 集合），或方括号形式的 IP 字面量如 `[::1]`。端口必须落在 1–65535：超出范围的 `parse_url()` 本身就会拒绝，而 `0` 不是可用的目标端口。这两条规则的目的，是让 host 无法把空格、CRLF 或路径分隔符偷渡进请求行。
 
 查询参数中的 `null` 在任何位置都表示「该参数不存在」：构造器会丢弃它，`withQuery()` 借同一条规则删除该键，因此 `query()` 绝不会报出一个 `toString()` 不会输出的键。
+
+值在 `query()` 中保留 PHP 类型——`['flag' => true, 'n' => 5]` 传进去什么样、读出来什么样——而构建出的字符串携带它们的 query-string 形式 `?flag=1&n=5`。同一组参数、两种表示：`query()` 是你设的那张映射表，`toString()` 是它的序列化结果。若需要两者完全一致，请直接传字符串。
 
 所有 `with*` 方法返回新实例：
 
