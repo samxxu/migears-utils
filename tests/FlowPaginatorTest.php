@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MiGears\Utils\Tests;
 
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 use MiGears\Utils\FlowPaginator;
+use MiGears\Utils\Paginator;
 
 class FlowPaginatorTest extends TestCase
 {
@@ -24,7 +26,10 @@ class FlowPaginatorTest extends TestCase
 
     public function testConstructWithValues(): void
     {
-        $items = [['id' => 1], ['id' => 2]];
+        $items = [
+            ['id' => 1, 'created_at' => '2024-01-01'],
+            ['id' => 2, 'created_at' => '2024-01-02'],
+        ];
         $paginator = new FlowPaginator(
             pageSize: 20,
             cursor: 5,
@@ -293,5 +298,99 @@ class FlowPaginatorTest extends TestCase
         $this->assertNull($next->cursor);
         $this->assertFalse($next->hasMore);
         $this->assertNull($next->nextCursor());
+    }
+
+    // --- page size ---
+
+    public function testPageSizeIsRaisedToOne(): void
+    {
+        $this->assertSame(1, (new FlowPaginator(pageSize: 0))->pageSize);
+        $this->assertSame(1, (new FlowPaginator(pageSize: -5))->pageSize);
+        $this->assertSame(1, FlowPaginator::first(pageSize: 0)->pageSize);
+    }
+
+    public function testPageSizeAgreesWithPaginator(): void
+    {
+        // Two paginators in one package must read the same argument the same way.
+        $this->assertSame(
+            (new Paginator(pageSize: 0))->pageSize,
+            (new FlowPaginator(pageSize: 0))->pageSize,
+        );
+    }
+
+    // --- unusable cursors ---
+
+    public function testHasMoreWithoutCursorValueThrows(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('no "id" value');
+
+        new FlowPaginator(items: [['name' => 'no id column']], hasMore: true);
+    }
+
+    public function testObjectItemWithoutCursorPropertyThrows(): void
+    {
+        $item = new \stdClass();
+        $item->name = 'no id property';
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('no "id" value');
+
+        new FlowPaginator(items: [$item], hasMore: true);
+    }
+
+    public function testNullCursorValueCountsAsUnusable(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new FlowPaginator(items: [['id' => null]], hasMore: true);
+    }
+
+    public function testExceptionNamesTheConfiguredColumn(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('no "uuid" value');
+
+        new FlowPaginator(cursorColumn: 'uuid', items: [['id' => 1]], hasMore: true);
+    }
+
+    public function testNextPageThrowsWhenLastItemLacksCursorValue(): void
+    {
+        $paginator = FlowPaginator::first(pageSize: 5);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $paginator->nextPage([['id' => 1], ['name' => 'no id column']], true);
+    }
+
+    public function testWithItemsThrowsWhenLastItemLacksCursorValue(): void
+    {
+        $paginator = FlowPaginator::first(pageSize: 5);
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $paginator->withItems([['name' => 'no id column']], true);
+    }
+
+    public function testHasMoreAlwaysComesWithUsableCursor(): void
+    {
+        // The invariant the exception protects: hasMore implies a non-null cursor.
+        $paginator = new FlowPaginator(
+            pageSize: 2,
+            cursor: 6,
+            items: [['id' => 7], ['id' => 8]],
+            hasMore: true,
+        );
+
+        $this->assertTrue($paginator->hasMore);
+        $this->assertSame(8, $paginator->nextCursor());
+    }
+
+    public function testItemsWithoutCursorValueAreFineWhenHasMoreIsFalse(): void
+    {
+        $paginator = new FlowPaginator(items: [['name' => 'no id column']], hasMore: false);
+
+        $this->assertFalse($paginator->hasMore);
+        $this->assertNull($paginator->nextCursor());
     }
 }

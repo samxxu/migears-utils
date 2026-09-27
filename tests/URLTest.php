@@ -459,4 +459,144 @@ class URLTest extends TestCase
         $this->assertNull($url->pass());
         $this->assertSame('https://example.com/', $url->toString());
     }
+
+    // --- port range ---
+
+    public function testPortBoundsAreAccepted(): void
+    {
+        $this->assertSame(1, (new URL('https', 'example.com', port: 1))->port());
+        $this->assertSame(65535, (new URL('https', 'example.com', port: 65535))->port());
+    }
+
+    public function testPortZeroIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('between 1 and 65535');
+
+        new URL('https', 'example.com', port: 0);
+    }
+
+    public function testNegativePortIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new URL('https', 'example.com', port: -1);
+    }
+
+    public function testPortAboveRangeIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new URL('https', 'example.com', port: 70000);
+    }
+
+    public function testWithPortValidatesToo(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new URL('https', 'example.com'))->withPort(70000);
+    }
+
+    // --- host characters ---
+
+    public function testHostWithCrlfIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid URL host');
+
+        new URL('https', "example.com\r\nX-Injected: yes");
+    }
+
+    public function testHostWithSpaceIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new URL('https', 'exa mple.com');
+    }
+
+    public function testHostWithPathSeparatorIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new URL('https', 'example.com/path');
+    }
+
+    public function testHostWithAtSignIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new URL('https', 'user@example.com');
+    }
+
+    public function testMalformedPercentEscapeInHostIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        new URL('https', 'example.com%zz');
+    }
+
+    public function testUnderscoreHostIsAccepted(): void
+    {
+        $url = new URL('https', 'exam_ple.com');
+
+        $this->assertSame('https://exam_ple.com/', $url->toString());
+    }
+
+    public function testIpv6LiteralRoundTrips(): void
+    {
+        $original = 'https://[::1]:8080/path';
+
+        $this->assertSame('[::1]', URL::parse($original)->host());
+        $this->assertSame($original, URL::parse($original)->toString());
+    }
+
+    public function testWithHostValidatesToo(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new URL('https', 'example.com'))->withHost("evil\r\nX-Injected: yes");
+    }
+
+    // --- null query values ---
+
+    public function testConstructorDropsNullQueryValues(): void
+    {
+        $url = new URL('https', 'example.com', query: ['a' => null, 'b' => 1]);
+
+        $this->assertSame(['b' => 1], $url->query());
+        $this->assertSame('https://example.com/?b=1', $url->toString());
+    }
+
+    public function testQueryAndToStringAgreeAboutNulls(): void
+    {
+        $url = new URL('https', 'example.com', query: ['a' => null, 'b' => 1, 'c' => null]);
+
+        // No key reported by query() may be missing from the built string.
+        foreach (array_keys($url->query()) as $key) {
+            $this->assertStringContainsString($key . '=', $url->toString());
+        }
+    }
+
+    public function testWithQueryDeletesWithNull(): void
+    {
+        $url = new URL('https', 'example.com', query: ['a' => '1', 'b' => '2']);
+
+        $this->assertSame(['b' => '2'], $url->withQuery(['a' => null])->query());
+    }
+
+    public function testDeletingTheLastParameterLeavesNoQuestionMark(): void
+    {
+        $url = new URL('https', 'example.com', query: ['a' => '1']);
+
+        $this->assertSame([], $url->withQuery(['a' => null])->query());
+        $this->assertSame('https://example.com/', $url->withQuery(['a' => null])->toString());
+    }
+
+    public function testNullQueryValueDoesNotSurviveAMerge(): void
+    {
+        $url = new URL('https', 'example.com', query: ['a' => '1']);
+
+        // merge-then-normalise must not turn a delete back into a stored null
+        $this->assertArrayNotHasKey('a', $url->withQuery(['a' => null, 'b' => '2'])->query());
+    }
 }

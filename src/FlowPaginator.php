@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MiGears\Utils;
 
+use InvalidArgumentException;
+
 /**
  * Cursor-based (flow) pagination data structure (DTO).
  *
@@ -24,15 +26,22 @@ final class FlowPaginator
     public readonly bool $hasMore;
 
     /**
+     * Two invariants hold by construction.
+     *
+     * $pageSize is raised to its lowest valid value (1), the same rule
+     * Paginator applies, so the two DTOs agree on what a page size means.
+     *
      * $hasMore is forced to false when $items is empty — an empty page ends the
-     * sequence. Reporting more pages while holding no cursor would send the
-     * next fetch back to the start, since a null cursor means "from the top".
+     * sequence. When $hasMore is true the last item must carry the cursor
+     * column, because a null cursor means "from the start": reporting more pages
+     * without a usable cursor would send the next fetch back to page one.
      *
      * @param int $pageSize Number of items per page
      * @param mixed $cursor Cursor value (typically last item's ID), null means "from start"
      * @param string $cursorColumn Name of the column used for cursor (e.g. "id")
      * @param list<T> $items Items on the current page
      * @param bool $hasMore Whether there are more items after this page
+     * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
      */
     public function __construct(
         int $pageSize = 10,
@@ -41,11 +50,19 @@ final class FlowPaginator
         array $items = [],
         bool $hasMore = false,
     ) {
-        $this->pageSize = $pageSize;
+        $this->pageSize = max(1, $pageSize);
         $this->cursor = $cursor;
         $this->cursorColumn = $cursorColumn;
         $this->items = $items;
         $this->hasMore = $hasMore && $items !== [];
+
+        if ($this->hasMore && self::cursorFrom($items[array_key_last($items)], $cursorColumn) === null) {
+            throw new InvalidArgumentException(
+                "Cannot report more pages: the last item has no \"{$cursorColumn}\" value, and a null cursor "
+                . 'means "from the start", so the next fetch would restart the page. '
+                . 'Keep the cursor column in the items, or pass hasMore: false.',
+            );
+        }
     }
 
     /**
@@ -93,7 +110,8 @@ final class FlowPaginator
     /**
      * Get the cursor for the next page (the last item's cursor column value).
      *
-     * Returns null if there are no items or no more pages.
+     * Null only when there is no next page: hasMore implies a usable cursor,
+     * because the constructor rejects items that cannot produce one.
      */
     public function nextCursor(): mixed
     {
@@ -113,6 +131,7 @@ final class FlowPaginator
      * @param list<U> $items
      * @param bool $hasMore
      * @return self<U>
+     * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
      */
     public function withItems(array $items, bool $hasMore = false): self
     {
@@ -132,6 +151,7 @@ final class FlowPaginator
      * @param list<U> $items
      * @param bool $hasMore
      * @return self<U>
+     * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
      */
     public function nextPage(array $items, bool $hasMore = false): self
     {

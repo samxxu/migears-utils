@@ -13,6 +13,11 @@ use InvalidArgumentException;
  * is ever guessed. Use parse() for strings that already carry a scheme, or
  * http() / https() to force a scheme onto a string.
  *
+ * Everything it accepts, it accepts on the way in: scheme, host, and port are
+ * validated, the path and fragment are percent-encoded, and a null query value
+ * means the parameter is absent. The constructor is the only place that
+ * checks, so every with*() method inherits the same guarantees.
+ *
  * Immutable — all modifications return a new instance.
  */
 final class URL
@@ -23,12 +28,19 @@ final class URL
     private readonly array $parts;
 
     /**
+     * The host accepts an RFC 3986 reg-name (a hostname, an IPv4 address, or
+     * the permissive unreserved/sub-delims set) or an IP literal in brackets
+     * such as [::1]. What matters is what that excludes: a space, CR, or LF
+     * would break out of the authority and reach a client as a second header
+     * or request line. The port must be a real destination port.
+     *
      * $path and $fragment are percent-encoded on the way in, leaving existing
      * escape sequences intact. An empty user or password counts as absent.
      *
-     * @param array<string, mixed> $query Query parameters
+     * @param array<string, mixed> $query Query parameters; null values are dropped
      * @param string|null $user Userinfo user name, without percent-encoding
      * @param string|null $pass Userinfo password, without percent-encoding
+     * @throws InvalidArgumentException When the scheme, host, port, or userinfo is not usable
      */
     public function __construct(
         string $scheme,
@@ -54,6 +66,12 @@ final class URL
             throw new InvalidArgumentException('URL host cannot be empty');
         }
 
+        self::assertValidHost($host);
+
+        if ($port !== null && ($port < 1 || $port > 65535)) {
+            throw new InvalidArgumentException("URL port must be between 1 and 65535, got {$port}");
+        }
+
         $user = $user === '' ? null : $user;
         $pass = $pass === '' ? null : $pass;
 
@@ -68,7 +86,7 @@ final class URL
             'host' => strtolower($host),
             'port' => $port,
             'path' => $path === '' || $path[0] !== '/' ? '/' . ltrim($path, '/') : $path,
-            'query' => $query,
+            'query' => self::withoutNulls($query),
             'fragment' => $fragment === null ? null : self::encodeFragment($fragment),
             'user' => $user,
             'pass' => $pass,
@@ -139,21 +157,16 @@ final class URL
     }
 
     /**
-     * Return a new URL with query parameters merged in. Null values remove the key.
+     * Return a new URL with query parameters merged in.
+     *
+     * Null values remove the key — the same meaning null carries in the
+     * constructor, applied through the one place that normalises.
      *
      * @param array<string, mixed> $params
      */
     public function withQuery(array $params): self
     {
-        $query = $this->parts['query'];
-        foreach ($params as $key => $value) {
-            if ($value === null) {
-                unset($query[$key]);
-            } else {
-                $query[$key] = $value;
-            }
-        }
-        return $this->with(['query' => $query]);
+        return $this->with(['query' => array_merge($this->parts['query'], $params)]);
     }
 
     /** Return a new URL with a single query parameter set. */
@@ -348,5 +361,37 @@ final class URL
             'https' => $this->parts['port'] === 443,
             default => false,
         };
+    }
+
+    /**
+     * Reject a host that could break out of the authority.
+     *
+     * A reg-name is any run of unreserved or sub-delim characters with valid
+     * percent escapes; an IP literal is anything inside brackets. Both exclude
+     * the characters that would let a host smuggle a header, a space, or a
+     * path separator into a request line.
+     */
+    private static function assertValidHost(string $host): void
+    {
+        $regName = '/^(?:[A-Za-z0-9._~!$&\'()*+,;=-]|%[A-Fa-f0-9]{2})*$/';
+        $ipLiteral = '/^\[[0-9A-Za-z:.%_-]+\]$/';
+
+        if (preg_match($regName, $host) !== 1 && preg_match($ipLiteral, $host) !== 1) {
+            throw new InvalidArgumentException('Invalid URL host: ' . (json_encode($host) ?: 'unrepresentable'));
+        }
+    }
+
+    /**
+     * Null means "no such parameter" everywhere in this class: the constructor
+     * drops null values and withQuery() deletes them. Keeping one here would
+     * let query() report a key that toString() never emits, since
+     * http_build_query() skips nulls too.
+     *
+     * @param array<string, mixed> $query
+     * @return array<string, mixed>
+     */
+    private static function withoutNulls(array $query): array
+    {
+        return array_filter($query, static fn (mixed $value): bool => $value !== null);
     }
 }

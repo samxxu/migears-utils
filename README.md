@@ -69,15 +69,21 @@ $secure->withUser(null)->toString();   // 'https://example.com/'
 
 A password without a user is rejected — `new URL(scheme: 'https', host: 'example.com', pass: 'secret')` throws. An empty user or password counts as absent, so it never reaches the output as `https://@example.com/`.
 
-The scheme, path, and fragment are normalized as they come in:
+The scheme, host, port, path, and fragment are normalized as they come in:
 
 ```php
-new URL(scheme: '1a', host: 'example.com');      // throws — not a valid scheme
+new URL(scheme: '1a', host: 'example.com');            // throws — not a valid scheme
+new URL(scheme: 'https', host: 'exa mple.com');        // throws — a host cannot carry a space
+new URL(scheme: 'https', host: 'a.com', port: 70000);  // throws — not a destination port
 (new URL(scheme: 'https', host: 'a.com'))->withPath('/a b/c')->toString();
 // 'https://a.com/a%20b/c'
 ```
 
 Characters that cannot appear literally in a path or fragment are percent-encoded, while existing escape sequences are left untouched — an already-encoded URL survives a parse-and-rebuild cycle unchanged.
+
+The host accepts an RFC 3986 reg-name (a hostname, an IPv4 address, or the permissive unreserved/sub-delims set) or an IP literal in brackets, such as `[::1]`. A port must be 1–65535: `parse_url()` already rejects anything larger, and `0` is not a destination. Both rules exist to keep a host from smuggling a space, a CRLF, or a path separator into a request line.
+
+A `null` query value means the parameter is absent, everywhere: the constructor drops it and `withQuery()` deletes the key with it, so `query()` never reports a key that the built string omits.
 
 All `with*` methods return new instances:
 
@@ -200,8 +206,8 @@ miGears Utils follows the miGears philosophy: **minimal, readable, and useful**.
 - **Three focused classes** — each does one thing well
 - **No inheritance chains** — everything is final
 - **Static methods where it makes sense** — no unnecessary instantiation
-- **Immutable where it matters** — Date and URL never mutate
-- **Small enough to read** — the longest class stays under 350 lines
+- **Immutable where it matters** — URL never mutates
+- **Small enough to read** — each class reads in a single sitting
 
 ## License
 
@@ -276,15 +282,21 @@ $secure->withUser(null)->toString();   // 'https://example.com/'
 
 只有密码没有用户名会被拒绝——`new URL(scheme: 'https', host: 'example.com', pass: 'secret')` 抛异常。空字符串的用户名或密码等同于未设置，不会输出成 `https://@example.com/`。
 
-scheme、path、fragment 在入口处即做规范化：
+scheme、host、port、path、fragment 在入口处即做规范化：
 
 ```php
-new URL(scheme: '1a', host: 'example.com');      // 抛出 — 不是合法 scheme
+new URL(scheme: '1a', host: 'example.com');            // 抛出 — 不是合法 scheme
+new URL(scheme: 'https', host: 'exa mple.com');        // 抛出 — host 不能含空格
+new URL(scheme: 'https', host: 'a.com', port: 70000);  // 抛出 — 不是可用的目标端口
 (new URL(scheme: 'https', host: 'a.com'))->withPath('/a b/c')->toString();
 // 'https://a.com/a%20b/c'
 ```
 
 路径与片段中不能直接出现的字符会被百分号编码，已有的转义序列则原样保留——一个已编码的 URL 经过解析再重建后不会改变。
+
+host 接受 RFC 3986 的 reg-name（主机名、IPv4，或更宽松的 unreserved/sub-delims 集合），或方括号形式的 IP 字面量如 `[::1]`。端口必须落在 1–65535：超出范围的 `parse_url()` 本身就会拒绝，而 `0` 不是可用的目标端口。这两条规则的目的，是让 host 无法把空格、CRLF 或路径分隔符偷渡进请求行。
+
+查询参数中的 `null` 在任何位置都表示「该参数不存在」：构造器会丢弃它，`withQuery()` 借同一条规则删除该键，因此 `query()` 绝不会报出一个 `toString()` 不会输出的键。
 
 所有 `with*` 方法返回新实例：
 
@@ -407,8 +419,8 @@ miGears Utils 遵循 miGears 设计哲学：**极简、可读、实用**。
 - **三个专注的类** — 每个类做好一件事
 - **没有继承链** — 所有类都是 final
 - **该静态就静态** — 不需要的实例化就省了
-- **该不可变就不可变** — Date 和 URL 永不修改自身
-- **小到可以读完** — 最长的类不到 350 行
+- **该不可变就不可变** — URL 永不修改自身
+- **小到可以读完** — 每个类都能一次读完
 
 ## 许可证
 
