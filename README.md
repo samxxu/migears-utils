@@ -79,7 +79,9 @@ new URL(scheme: 'https', host: 'a.com', port: 70000);  // throws — not a desti
 // 'https://a.com/a%20b/c'
 ```
 
-Characters that cannot appear literally in a path or fragment are percent-encoded, while existing escape sequences are left untouched — an already-encoded URL survives a parse-and-rebuild cycle unchanged.
+Characters that cannot appear literally in a path or fragment are percent-encoded, while existing escape sequences are left untouched — an already-encoded **path or fragment** survives a parse-and-rebuild cycle unchanged. That guarantee is scoped to those two: they are where callers routinely paste something already encoded and expect it back verbatim.
+
+Query parameters go the other way. They are decoded on parse and rebuilt form-encoded, PHP's convention, where a space is written `+` and a `+` is read as a space. So `?a%20b=1` comes back as `?a+b=1` — equal as form data, not byte for byte. It is self-consistent (`?a=1+2` round-trips untouched), and `query()` gives you the decoded values if you need them. Percent-encode a value yourself and read it with `query()` if it has to survive literally.
 
 The host accepts an RFC 3986 reg-name (a hostname, an IPv4 address, or the permissive unreserved/sub-delims set) or an IP literal in brackets, such as `[::1]`. A port must be 1–65535: `parse_url()` already rejects anything larger, and `0` is not a destination. Both rules exist to keep a host from smuggling a space, a CRLF, or a path separator into a request line.
 
@@ -294,7 +296,9 @@ new URL(scheme: 'https', host: 'a.com', port: 70000);  // 抛出 — 不是可�
 // 'https://a.com/a%20b/c'
 ```
 
-路径与片段中不能直接出现的字符会被百分号编码，已有的转义序列则原样保留——一个已编码的 URL 经过解析再重建后不会改变。
+路径与片段中不能直接出现的字符会被百分号编码，已有的转义序列则原样保留——已编码的**路径与片段**经过解析再重建后不会改变。这条承诺的范围就是这两处：调用方习惯把已经编码好的内容粘进 path 或 fragment，并期望原样取回。
+
+查询参数走的是另一条路。解析时解码，重建时按 form 编码——即 PHP 的约定，空格写成 `+`，而 `+` 读作空格。因此 `?a%20b=1` 会变成 `?a+b=1`：作为表单数据等价，但不是逐字节相同。它自身是一致的（`?a=1+2` 原样往返），需要解码后的值时用 `query()`。如果某个值必须逐字节存活，请自行百分号编码，并用 `query()` 读取。
 
 host 接受 RFC 3986 的 reg-name（主机名、IPv4，或更宽松的 unreserved/sub-delims 集合），或方括号形式的 IP 字面量如 `[::1]`。端口必须落在 1–65535：超出范围的 `parse_url()` 本身就会拒绝，而 `0` 不是可用的目标端口。这两条规则的目的，是让 host 无法把空格、CRLF 或路径分隔符偷渡进请求行。
 

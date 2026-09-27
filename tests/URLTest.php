@@ -457,6 +457,27 @@ class URLTest extends TestCase
         $this->assertSame('/100%25', $url->path());
     }
 
+    public function testPathAndFragmentSurviveARebuildButTheQueryIsFormEncoded(): void
+    {
+        // The documented boundary: percent escapes in a path or fragment are
+        // kept verbatim, while the query is rebuilt form-encoded.
+        $url = URL::parse('https://example.com/a%20b?c%20d=1&e=2#f%20g');
+
+        $this->assertSame('/a%20b', $url->path());
+        $this->assertSame('f%20g', $url->fragment());
+        $this->assertSame('https://example.com/a%20b?c+d=1&e=2#f%20g', $url->toString());
+    }
+
+    public function testQueryPlusIsReadAsASpaceAndWrittenBackTheSame(): void
+    {
+        // Self-consistent, just not byte-preserving: + decodes to a space and
+        // a space re-encodes to +.
+        $url = URL::parse('https://example.com/?a=1+2');
+
+        $this->assertSame(['a' => '1 2'], $url->query());
+        $this->assertSame('https://example.com/?a=1+2', $url->toString());
+    }
+
     // --- empty userinfo ---
 
     public function testEmptyUserInfoIsTreatedAsAbsent(): void
