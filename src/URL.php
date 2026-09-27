@@ -58,7 +58,9 @@ final class URL
 
         $scheme = strtolower($scheme);
 
-        if (!preg_match('/^[a-z][a-z0-9+.\-]*$/', $scheme)) {
+        // \z, not $: PCRE's $ also matches just before a trailing newline, so
+        // "https\n" would pass and put a raw LF in front of the authority.
+        if (!preg_match('/^[a-z][a-z0-9+.\-]*\z/', $scheme)) {
             throw new InvalidArgumentException("Invalid URL scheme: {$scheme}");
         }
 
@@ -370,11 +372,15 @@ final class URL
      * percent escapes; an IP literal is anything inside brackets. Both exclude
      * the characters that would let a host smuggle a header, a space, or a
      * path separator into a request line.
+     *
+     * Both end with \z rather than $, because PCRE's $ also matches before a
+     * trailing newline: "example.com\n" passed while "example.com\r\nX: y" was
+     * rejected, and that is what hid the difference.
      */
     private static function assertValidHost(string $host): void
     {
-        $regName = '/^(?:[A-Za-z0-9._~!$&\'()*+,;=-]|%[A-Fa-f0-9]{2})*$/';
-        $ipLiteral = '/^\[[0-9A-Za-z:.%_-]+\]$/';
+        $regName = '/^(?:[A-Za-z0-9._~!$&\'()*+,;=-]|%[A-Fa-f0-9]{2})*\z/';
+        $ipLiteral = '/^\[[0-9A-Za-z:.%_-]+\]\z/';
 
         if (preg_match($regName, $host) !== 1 && preg_match($ipLiteral, $host) !== 1) {
             throw new InvalidArgumentException('Invalid URL host: ' . (json_encode($host) ?: 'unrepresentable'));

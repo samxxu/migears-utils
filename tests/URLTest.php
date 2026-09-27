@@ -418,6 +418,14 @@ class URLTest extends TestCase
         (new URL(scheme: 'https', host: 'example.com'))->withScheme('1a b');
     }
 
+    public function testSchemeWithTrailingLineFeedIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid URL scheme');
+
+        new URL("https\n", 'example.com');
+    }
+
     // --- path and fragment encoding ---
 
     public function testPathIsPercentEncoded(): void
@@ -507,6 +515,24 @@ class URLTest extends TestCase
         new URL('https', "example.com\r\nX-Injected: yes");
     }
 
+    // A bare LF needs its own case: the CRLF forms above carry text after the
+    // newline, so they fail on the character class and never reach the anchor.
+    public function testHostWithTrailingLineFeedIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid URL host');
+
+        new URL('https', "example.com\n");
+    }
+
+    public function testIpLiteralWithTrailingLineFeedIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid URL host');
+
+        new URL('https', "[::1]\n");
+    }
+
     public function testHostWithSpaceIsRejected(): void
     {
         $this->expectException(InvalidArgumentException::class);
@@ -555,6 +581,13 @@ class URLTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
 
         (new URL('https', 'example.com'))->withHost("evil\r\nX-Injected: yes");
+    }
+
+    public function testWithHostRejectsTrailingLineFeed(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        (new URL('https', 'example.com'))->withHost("example.com\n");
     }
 
     // --- null query values ---
