@@ -4,12 +4,12 @@
 > per item: a front-matter header and a thread. This file is generated from them and can be rewritten at
 > any time; edit an item, never this file.
 >
-> From the miGears Full-Module Code Review Report (5th round, 2026-09-28).
+> From the miGears Full-Module Code Review Report (6th round, 2026-10-01).
 
 | | |
 |---|---|
-| Status | **P2 open** |
-| Size | src 419 lines (net) · 138 tests · 3 src files |
+| Status | **Best state** |
+| Size | src 441 lines (net) · 144 tests · 3 src files |
 
 Legend — **P0** functional or security · **P1** documentation that fails when copied · **P2** robustness · **P3** metadata and docs
 
@@ -17,9 +17,9 @@ Legend — **P0** functional or security · **P1** documentation that fails when
 
 | | |
 |---|---|
-| Unsettled | P0 0 · P1 0 · P2 1 · P3 0 · other 1 |
-| Settled | 3 of 5 |
-| Waiting on the owner | `P2-1` |
+| Unsettled | P0 0 · P1 0 · P2 0 · P3 0 · other 1 |
+| Settled | 4 of 5 |
+| Waiting on the owner | _nothing_ |
 | Waiting on the coordinator | _nothing_ |
 | Waiting on the reviewer | `G4` |
 | Deferred, owing nobody | _nothing_ |
@@ -27,7 +27,7 @@ Legend — **P0** functional or security · **P1** documentation that fails when
 | id | level | status | title |
 |---|---|---|---|
 | [`P0-1`](issues/P0-1.md) | P0 | **verified** | The scheme, reg-name and IP-literal patterns use `$` without `/D` or … |
-| [`P2-1`](issues/P2-1.md) | P2 | **open** | URL::parse() uses the native parse_url() which returns false for … |
+| [`P2-1`](issues/P2-1.md) | P2 | **verified** | URL::parse() uses the native parse_url() which returns false for … |
 | [`P3-1`](issues/P3-1.md) | P3 | **verified** | Query rebuilding is form-encoded and not byte-preserving: … |
 | [`P3-2`](issues/P3-2.md) | P3 | **verified** | `query()` and `toString()` still disagree for non-string scalars: with … |
 | [`G4`](issues/G4.md) | - | **rejected** | Document standard: the project standard is that every document is … |
@@ -39,26 +39,25 @@ highest severity first. `waiting on` is the party who acts next, read from that 
 
 | | |
 |---|---|
-| Unclosed | **2** of 5 |
-| By status | `open` 1 · `rejected` 1 |
-| Waiting on | owner 1 · reviewer 1 |
+| Unclosed | **1** of 5 |
+| By status | `rejected` 1 |
+| Waiting on | reviewer 1 |
 
 | level | item | status | waiting on | title |
 |---|---|---|---|---|
-| **P2** | [`P2-1`](issues/P2-1.md) | `open` | owner | URL::parse() uses the native parse_url() which returns false for … |
 | **-** | [`G4`](issues/G4.md) | `rejected` | reviewer | Document standard: the project standard is that every document is … |
 
 ## Verdict
 
-A focused utility library with URL parsing/validation and paginators; the P0 URL anchor issue is fixed. A parse_url truncation risk remains for URLs with unusual schemes or malformed hosts.
+The one defect that survived round 4 is closed at the call site as well as in the constructor, and the remaining open items are documented trade-offs.
 
 ## Fixed since the last round
 
-P0-1 confirmed fixed — all three $ anchors changed to \z in URL validation, with explanatory comments; P3-1/P3-2 byte-preserving and query-representation claims now scoped correctly; G4 CHANGELOG bilingual standard pending.
+P2-1 verified by mutation: build() now refuses both rewrites parse_url() performs — a control character becoming an underscore, and anything after a non-numeric port tail being dropped. Deleting either guard turns the module’s own tests red.
 
 ## Test gaps
 
-No test for URL::build() with port 0 (valid per RFC but edge case); no test for Paginator with total 0 and page 1 (boundary); no test for FlowPaginator with empty first page but more data available.
+FlowPaginator::withItems() (keeps the cursor) and nextPage() (advances it) have no test that states the difference; Paginator with a currentPage past the last page reports hasNext()=false but may still build an out-of-range offset.
 
 ## Verification protocol
 
@@ -74,12 +73,12 @@ No test for URL::build() with port 0 (valid per RFC but edge case); no test for 
 > 本模块问题的概览。条目本体在 [`issues/`](issues/README.md)，一条目一文件：前置字段加讨论串。
 > 本文件由条目生成，随时可以整段重写；请改条目，不要改本文件。
 >
-> 出自 miGears 全模块代码评审报告（5th round，2026-09-28）。
+> 出自 miGears 全模块代码评审报告（6th round，2026-10-01）。
 
 | | |
 |---|---|
-| 状态 | **P2 待修** |
-| 体量 | src 419 行（净）· 138 个用例 · 3 个源文件 |
+| 状态 | **状态最好** |
+| 体量 | src 441 行（净）· 144 个用例 · 3 个源文件 |
 
 级别说明 — **P0** 功能性或安全级 · **P1** 文档照抄即错 · **P2** 健壮性 · **P3** 元数据与文档
 
@@ -87,9 +86,9 @@ No test for URL::build() with port 0 (valid per RFC but edge case); no test for 
 
 | | |
 |---|---|
-| 未了结 | P0 0 · P1 0 · P2 1 · P3 0 · 其他 1 |
-| 已了结 | 3 / 5 |
-| 等模块主 | `P2-1` |
+| 未了结 | P0 0 · P1 0 · P2 0 · P3 0 · 其他 1 |
+| 已了结 | 4 / 5 |
+| 等模块主 | _无_ |
 | 等协调人 | _无_ |
 | 等评审方 | `G4` |
 | 已暂缓，不欠谁 | _无_ |
@@ -97,7 +96,7 @@ No test for URL::build() with port 0 (valid per RFC but edge case); no test for 
 | id | 级别 | 状态 | 标题 |
 |---|---|---|---|
 | [`P0-1`](issues/P0-1.md) | P0 | **verified** | 方案、reg-name 与 IP 字面量的正则使用 $ 且未加 /D 或 \z，因此尽管字符类排除了 \n，结尾单个 LF … |
-| [`P2-1`](issues/P2-1.md) | P2 | **open** | URL::parse() 使用原生 parse_url()，对严重畸形的 URL 返回 false，但对不常见但合法的输入（如下划线 … |
+| [`P2-1`](issues/P2-1.md) | P2 | **verified** | URL::parse() 使用原生 parse_url()，对严重畸形的 URL 返回 false，但对不常见但合法的输入（如下划线 … |
 | [`P3-1`](issues/P3-1.md) | P3 | **verified** | query 重建使用 form … |
 | [`P3-2`](issues/P3-2.md) | P3 | **verified** | query() 与 toString() 对非字符串标量仍不一致：query: ["flag"=>true,"n"=>5] 时 query() … |
 | [`G4`](issues/G4.md) | - | **rejected** | 文档标准：项目标准是每一份文档都上英下汉——英文块在前，完全相同的中文块在后。本模块的 `CHANGELOG.md` 为纯英文。 … |
@@ -109,26 +108,25 @@ No test for URL::build() with port 0 (valid per RFC but edge case); no test for 
 
 | | |
 |---|---|
-| 未关闭 | **2** / 5 |
-| 按状态 | `open` 1 · `rejected` 1 |
-| 等在谁 | 模块主 1 · 评审方 1 |
+| 未关闭 | **1** / 5 |
+| 按状态 | `rejected` 1 |
+| 等在谁 | 评审方 1 |
 
 | 级别 | 条目 | 状态 | 等在谁 | 标题 |
 |---|---|---|---|---|
-| **P2** | [`P2-1`](issues/P2-1.md) | `open` | 模块主 | URL::parse() 使用原生 parse_url()，对严重畸形的 URL 返回 false，但对不常见但合法的输入（如下划线 … |
 | **-** | [`G4`](issues/G4.md) | `rejected` | 评审方 | 文档标准：项目标准是每一份文档都上英下汉——英文块在前，完全相同的中文块在后。本模块的 `CHANGELOG.md` 为纯英文。 … |
 
 ## 结论
 
-一个专注的工具库，含 URL 解析/校验和分页器；P0 级 URL 锚点问题已修复。parse_url 在异常 scheme 或畸形主机下仍有截断风险。
+第四轮唯一残留的缺陷在调用点与构造器两处都已封住，其余未决项都是已文档化的取舍。
 
 ## 本轮已修复确认
 
-P0-1 confirmed fixed — all three $ anchors changed to \z in URL validation, with explanatory comments; P3-1/P3-2 byte-preserving and query-representation claims now scoped correctly; G4 CHANGELOG bilingual standard pending.
+P2-1 verified by mutation: build() now refuses both rewrites parse_url() performs — a control character becoming an underscore, and anything after a non-numeric port tail being dropped. Deleting either guard turns the module’s own tests red.
 
 ## 测试盲区
 
-无 URL::build() 端口为 0 的测试（按 RFC 合法但属边界情况）；无 total 为 0 且 page 为 1 的 Paginator 测试（边界）；无 FlowPaginator 首页为空但有更多数据的测试。
+FlowPaginator 的 withItems()（保留游标）与 nextPage()（推进游标）两种语义的区分无用例点明；Paginator 在 currentPage 超出末页时报 hasNext()=false，但仍可能产出越界的 offset。
 
 ## 验证方式
 
