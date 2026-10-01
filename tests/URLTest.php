@@ -92,6 +92,27 @@ class URLTest extends TestCase
         URL::parse('http:///bad');
     }
 
+    // --- input parse_url() would silently rewrite ---
+
+    public function testParseRejectsAuthorityEndingWithLineFeed(): void
+    {
+        // Without the guard parse_url() turns the LF into "_", yielding
+        // "https://example.com_/" instead of rejecting the string.
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('control characters');
+
+        URL::parse("https://example.com\n");
+    }
+
+    public function testParseRejectsNonNumericPortTail(): void
+    {
+        // Without the guard parse_url() keeps port 80 and drops "abc", so the
+        // caller gets "http://example.com/" for "http://example.com:80abc".
+        $this->expectException(InvalidArgumentException::class);
+
+        URL::parse('http://example.com:80abc');
+    }
+
     // --- http / https factories ---
 
     public function testHttpFactoryFillsMissingScheme(): void
@@ -365,6 +386,15 @@ class URLTest extends TestCase
         $this->assertSame(['a+b' => 'c+d'], $url->query());
     }
 
+    public function testParseSkipsEmptyQuerySegments(): void
+    {
+        // Leading, doubled and trailing "&" leave empty pairs, which splitQuery()
+        // drops rather than storing as an empty key.
+        $this->assertSame(['a' => '1', 'b' => '2'], URL::parse('https://example.com/?a=1&&b=2&')->query());
+        $this->assertSame(['a' => '1'], URL::parse('https://example.com/?&a=1')->query());
+        $this->assertSame([], URL::parse('https://example.com/?&&')->query());
+    }
+
     // --- Path operations ---
 
     public function testAppendPath(): void
@@ -595,6 +625,22 @@ class URLTest extends TestCase
 
         $this->assertSame('[::1]', URL::parse($original)->host());
         $this->assertSame($original, URL::parse($original)->toString());
+    }
+
+    public function testIdnHostIsAcceptedOnlyAsPunycode(): void
+    {
+        // The host set is ASCII reg-name: an A-label (punycode) is carried
+        // through, while a U-label is rejected rather than silently mangled.
+        $this->assertSame('xn--bcher-kva.de', new URL('https', 'xn--bcher-kva.de')->host());
+        $this->assertSame('https://xn--bcher-kva.de/', new URL('https', 'xn--bcher-kva.de')->toString());
+    }
+
+    public function testIdnHostInUnicodeFormIsRejected(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid URL host');
+
+        new URL('https', "b\xC3\xBCcher.de");
     }
 
     public function testWithHostValidatesToo(): void

@@ -18,6 +18,21 @@ Each class is small enough to read in a few minutes. Use what you need, ignore t
 - **`Paginator`** — Offset-based pagination DTO with `toArray()` for JSON
 - **`FlowPaginator`** — Cursor-based (infinite scroll) pagination DTO
 
+## Boundaries
+
+**In scope**
+
+- The three final, dependency-free classes under the PSR-4 root `MiGears\Utils`: `URL`, `Paginator`, `FlowPaginator` — no inheritance, no extension requirements, PHP 8.1+ only.
+- `URL`: an immutable builder for absolute URLs — scheme and host are required and the scheme is never guessed; every `with*` method returns a new instance.
+- `Paginator` and `FlowPaginator`: pagination DTOs that compute page metadata (`totalPages()`, `offset()`, `hasPrev()` / `hasNext()`, `nextCursor()`) and serialize through `toArray()`.
+
+**Not in scope (by design)**
+
+- Collection, string and array helpers — `Str` and `Arr` were removed in v2.0 because they duplicated upstream libraries; use `illuminate/support`, `symfony/string`, or your own helper set instead.
+- Localized dates and text — `Date` moved to the sibling `migears/i18n` package as `LocalizedDate`.
+- An HTTP layer — no request/response objects, no routing, no HTTP client; `URL` only builds and validates an absolute URL string.
+- Database access — `Paginator::offset()` computes a number for a query, but no SQL is built or executed here; that belongs to the caller or to `migears/sql` / `migears/dao`.
+
 ## Installation
 
 ```bash
@@ -234,6 +249,21 @@ MIT
 - **`URL`** — 面向绝对 URL 的不可变构建器：协议显式化、支持凭据与查询参数操作
 - **`Paginator`** — 基于偏移量的分页 DTO，带 `toArray()` 支持 JSON
 - **`FlowPaginator`** — 基于游标（无限滚动）的分页 DTO
+
+## 边界
+
+**范围内**
+
+- PSR-4 根 `MiGears\Utils` 下的三个类（均为 final、零依赖）：`URL`、`Paginator`、`FlowPaginator` —— 无继承、无扩展依赖，仅要求 PHP 8.1+。
+- `URL`：面向绝对 URL 的不可变构建器 —— scheme 与 host 必填、scheme 从不被猜测；所有 `with*` 方法都返回新实例。
+- `Paginator` 与 `FlowPaginator`：分页 DTO，负责计算分页元数据（`totalPages()`、`offset()`、`hasPrev()` / `hasNext()`、`nextCursor()`）并通过 `toArray()` 序列化。
+
+**范围外（刻意不做）**
+
+- 集合、字符串与数组工具 —— `Str` 与 `Arr` 已在 v2.0 中移除，因为它们复刻了上游库；请改用 `illuminate/support`、`symfony/string`，或你自己的工具集。
+- 本地化的日期与文本 —— `Date` 已迁至兄弟模块 `migears/i18n`，更名为 `LocalizedDate`。
+- HTTP 层 —— 不提供请求/响应对象，不做路由，也没有 HTTP 客户端；`URL` 只负责构建并校验一个绝对 URL 字符串。
+- 数据库访问 —— `Paginator::offset()` 只是算出一个供查询使用的数字，这里不构建、也不执行任何 SQL；那属于调用方或 `migears/sql` / `migears/dao`。
 
 ## 安装
 

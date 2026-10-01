@@ -281,6 +281,22 @@ class FlowPaginatorTest extends TestCase
         $this->assertSame([], $array['items']);
     }
 
+    public function testToArrayCursorMatchesTheInstanceForBothBuilders(): void
+    {
+        $items = [['id' => 1], ['id' => 2]];
+        $first = FlowPaginator::first(pageSize: 3);
+
+        // withItems() keeps the incoming cursor, nextPage() advances it; either
+        // way toArray() reports the same cursor the instance exposes.
+        $withItems = $first->withItems($items, true);
+        $this->assertNull($withItems->cursor);
+        $this->assertSame($withItems->cursor, $withItems->toArray()['cursor']);
+
+        $nextPage = $first->nextPage($items, true);
+        $this->assertSame(2, $nextPage->cursor);
+        $this->assertSame($nextPage->cursor, $nextPage->toArray()['cursor']);
+    }
+
     // --- empty pages ---
 
     public function testEmptyItemsForceHasMoreOff(): void

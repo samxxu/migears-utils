@@ -269,6 +269,18 @@ final class URL
             $url = $scheme . '://' . ltrim($url, '/');
         }
 
+        // parse_url() rewrites some input instead of failing: a control
+        // character becomes "_" and anything after the port is dropped, so
+        // "https://example.com\n" and "http://example.com:80abc" would come
+        // back as a URL the caller never handed in. Reject both first.
+        if (preg_match('/[\x00-\x1F\x7F]/', $url) === 1) {
+            throw new InvalidArgumentException('URL contains control characters: ' . (json_encode($url) ?: 'unrepresentable'));
+        }
+
+        if (self::hasTruncatedPort($url)) {
+            throw new InvalidArgumentException("Malformed URL: {$url}");
+        }
+
         $parts = parse_url($url);
 
         if ($parts === false || !isset($parts['host']) || $parts['host'] === '') {
@@ -363,6 +375,35 @@ final class URL
             'https' => $this->parts['port'] === 443,
             default => false,
         };
+    }
+
+    /**
+     * Whether the authority carries a port that parse_url() would truncate.
+     *
+     * "http://example.com:80abc" parses as port 80 with the "abc" silently
+     * dropped, so the caller receives a URL it did not ask for. The userinfo
+     * and a bracketed IP literal are skipped first, so their own colons and
+     * digits cannot be mistaken for a port.
+     */
+    private static function hasTruncatedPort(string $url): bool
+    {
+        $start = (int) strpos($url, '://') + 3;
+        $authority = substr($url, $start, strcspn($url, '/?#', $start));
+
+        $at = strrpos($authority, '@');
+        $hostPort = $at === false ? $authority : substr($authority, $at + 1);
+
+        if (str_starts_with($hostPort, '[')) {
+            $close = strpos($hostPort, ']');
+            $hostPort = $close === false ? '' : substr($hostPort, $close + 1);
+        }
+
+        $colon = strrpos($hostPort, ':');
+        if ($colon === false) {
+            return false;
+        }
+
+        return preg_match('/^\d+$/', substr($hostPort, $colon + 1)) !== 1;
     }
 
     /**
