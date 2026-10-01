@@ -20,8 +20,8 @@ Legend — **P0** functional or security · **P1** documentation that fails when
 | Unsettled | P0 0 · P1 0 · P2 1 · P3 0 · other 1 |
 | Settled | 3 of 5 |
 | Waiting on the owner | `P2-1` |
-| Waiting on the reviewer | `G4` |
 | Waiting on the coordinator | _nothing_ |
+| Waiting on the reviewer | `G4` |
 | Deferred, owing nobody | _nothing_ |
 
 | id | level | status | title |
@@ -89,9 +89,9 @@ No test for URL::build() with port 0 (valid per RFC but edge case); no test for 
 |---|---|
 | 未了结 | P0 0 · P1 0 · P2 1 · P3 0 · 其他 1 |
 | 已了结 | 3 / 5 |
-| 等负责人 | `P2-1` |
-| 等评审方 | `G4` |
+| 等模块主 | `P2-1` |
 | 等协调人 | _无_ |
+| 等评审方 | `G4` |
 | 已暂缓，不欠谁 | _无_ |
 
 | id | 级别 | 状态 | 标题 |
@@ -111,11 +111,11 @@ No test for URL::build() with port 0 (valid per RFC but edge case); no test for 
 |---|---|
 | 未关闭 | **2** / 5 |
 | 按状态 | `open` 1 · `rejected` 1 |
-| 等在谁 | 负责人 1 · 评审方 1 |
+| 等在谁 | 模块主 1 · 评审方 1 |
 
 | 级别 | 条目 | 状态 | 等在谁 | 标题 |
 |---|---|---|---|---|
-| **P2** | [`P2-1`](issues/P2-1.md) | `open` | 负责人 | URL::parse() 使用原生 parse_url()，对严重畸形的 URL 返回 false，但对不常见但合法的输入（如下划线 … |
+| **P2** | [`P2-1`](issues/P2-1.md) | `open` | 模块主 | URL::parse() 使用原生 parse_url()，对严重畸形的 URL 返回 false，但对不常见但合法的输入（如下划线 … |
 | **-** | [`G4`](issues/G4.md) | `rejected` | 评审方 | 文档标准：项目标准是每一份文档都上英下汉——英文块在前，完全相同的中文块在后。本模块的 `CHANGELOG.md` 为纯英文。 … |
 
 ## 结论
