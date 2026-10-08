@@ -2,7 +2,7 @@
 
 All notable changes to `migears/utils` are documented here. This project follows [Semantic Versioning](https://semver.org/).
 
-## [2.0.0] — Unreleased
+## [2.3.0] — Unreleased
 
 Renamed from `migears/common`, and a breaking release in its own right. `URL` stopped guessing protocols, and `Str` / `Arr` left the package.
 

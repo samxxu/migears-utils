@@ -1,6 +1,6 @@
 # migears/utils
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.3.0-blue)
 
 Minimalist utility collection for PHP. Three classes covering URLs and pagination — no dependencies, no magic.
 
@@ -130,7 +130,7 @@ Bracket notation is not expanded, so every key is flat and every value is a scal
 ```php
 use MiGears\Utils\Paginator;
 
-$paginator = new Paginator(
+$paginator = Paginator::create(
     pageSize: 10,
     currentPage: 2,
     total: 53,
@@ -159,7 +159,7 @@ $paginator = FlowPaginator::first(20, 'id');
 $next = $paginator->nextPage($items, $hasMore);
 
 $next->nextCursor();        // cursor for the next page
-$next->hasMore;             // whether there are more pages
+$next->hasMore();           // whether there are more pages
 $next->toArray();           // for JSON response
 ```
 
@@ -192,6 +192,8 @@ An empty page ends the sequence: passing `hasMore: true` together with no items 
 
 | Method | Description |
 |--------|-------------|
+| `Paginator::create($size, $page, $total, $items)` | Build a paginator — raises size/page to 1 |
+| `pageSize()` / `currentPage()` / `total()` / `items()` | Read-only accessors |
 | `totalPages()` | Total page count |
 | `hasPrev()` / `hasNext()` | Page existence |
 | `prevPage()` / `nextPage()` | Page numbers |
@@ -207,6 +209,8 @@ An empty page ends the sequence: passing `hasMore: true` together with no items 
 | Method | Description |
 |--------|-------------|
 | `FlowPaginator::first($size, $column)` | Create first-page paginator |
+| `FlowPaginator::create($size, $cursor, $column, $items, $hasMore)` | Build a paginator — raises size to 1 |
+| `pageSize()` / `cursor()` / `cursorColumn()` / `items()` / `hasMore()` | Read-only accessors |
 | `count()` / `isEmpty()` | Item count |
 | `isFirstPage()` | Whether first page |
 | `nextCursor()` | Cursor for next page |
@@ -236,7 +240,7 @@ MIT
 
 # migears/utils
 
-![Version](https://img.shields.io/badge/version-2.0.0-blue)
+![Version](https://img.shields.io/badge/version-2.3.0-blue)
 
 极简 PHP 工具集。三个类，涵盖 URL 和分页——无依赖，零魔法。
 
@@ -362,7 +366,7 @@ URL::parse('https://example.com/?a.b=1&c%20d=2')->query();
 ```php
 use MiGears\Utils\Paginator;
 
-$paginator = new Paginator(
+$paginator = Paginator::create(
     pageSize: 10,
     currentPage: 2,
     total: 53,
@@ -391,7 +395,7 @@ $paginator = FlowPaginator::first(20, 'id');
 $next = $paginator->nextPage($items, $hasMore);
 
 $next->nextCursor();        // 下一页的游标
-$next->hasMore;             // 是否还有更多页
+$next->hasMore();           // 是否还有更多页
 $next->toArray();           // 用于 JSON 响应
 ```
 
@@ -424,6 +428,8 @@ $next->toArray();           // 用于 JSON 响应
 
 | 方法 | 说明 |
 |------|------|
+| `Paginator::create($size, $page, $total, $items)` | 构建分页器 — size/page 提升至 1 |
+| `pageSize()` / `currentPage()` / `total()` / `items()` | 只读访问器 |
 | `totalPages()` | 总页数 |
 | `hasPrev()` / `hasNext()` | 是否有上/下一页 |
 | `prevPage()` / `nextPage()` | 上/下一页页码 |
@@ -439,6 +445,8 @@ $next->toArray();           // 用于 JSON 响应
 | 方法 | 说明 |
 |------|------|
 | `FlowPaginator::first($size, $column)` | 创建首页分页器 |
+| `FlowPaginator::create($size, $cursor, $column, $items, $hasMore)` | 构建分页器 — size 提升至 1 |
+| `pageSize()` / `cursor()` / `cursorColumn()` / `items()` / `hasMore()` | 只读访问器 |
 | `count()` / `isEmpty()` | 条目数 |
 | `isFirstPage()` | 是否首页 |
 | `nextCursor()` | 下一页游标 |

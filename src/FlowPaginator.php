@@ -12,21 +12,16 @@ use InvalidArgumentException;
  * Used for infinite-scroll style pagination where you fetch "N items after cursor X".
  * The cursor is typically the ID of the last item in the current set.
  *
+ * Every property is private and readonly: a paginator is built once and never
+ * changes. Use create() (or first() for the opening page) to build one; the
+ * constructor is not public.
+ *
  * @template T
  */
 final class FlowPaginator
 {
-    public readonly int $pageSize;
-    public readonly mixed $cursor;
-    public readonly string $cursorColumn;
-
-    /** @var list<T> */
-    public readonly array $items;
-
-    public readonly bool $hasMore;
-
     /**
-     * Two invariants hold by construction.
+     * Two invariants hold by construction, both enforced by create().
      *
      * $pageSize is raised to its lowest valid value (1), the same rule
      * Paginator applies, so the two DTOs agree on what a page size means.
@@ -36,26 +31,21 @@ final class FlowPaginator
      * column, because a null cursor means "from the start": reporting more pages
      * without a usable cursor would send the next fetch back to page one.
      *
-     * @param int $pageSize Number of items per page
+     * @param int $pageSize Number of items per page (>= 1, guaranteed by create())
      * @param mixed $cursor Cursor value (typically last item's ID), null means "from start"
      * @param string $cursorColumn Name of the column used for cursor (e.g. "id")
      * @param list<T> $items Items on the current page
      * @param bool $hasMore Whether there are more items after this page
      * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
      */
-    public function __construct(
-        int $pageSize = 10,
-        mixed $cursor = null,
-        string $cursorColumn = 'id',
-        array $items = [],
-        bool $hasMore = false,
+    private function __construct(
+        private readonly int $pageSize,
+        private readonly mixed $cursor,
+        private readonly string $cursorColumn,
+        /** @var list<T> */
+        private readonly array $items,
+        private readonly bool $hasMore,
     ) {
-        $this->pageSize = max(1, $pageSize);
-        $this->cursor = $cursor;
-        $this->cursorColumn = $cursorColumn;
-        $this->items = $items;
-        $this->hasMore = $hasMore && $items !== [];
-
         if ($this->hasMore && self::cursorFrom($items[array_key_last($items)], $cursorColumn) === null) {
             throw new InvalidArgumentException(
                 "Cannot report more pages: the last item has no \"{$cursorColumn}\" value, and a null cursor "
@@ -63,6 +53,31 @@ final class FlowPaginator
                 . 'Keep the cursor column in the items, or pass hasMore: false.',
             );
         }
+    }
+
+    /**
+     * Build a paginator, raising $pageSize to its lowest valid value (1) and
+     * forcing $hasMore to false when there are no items.
+     *
+     * @template U
+     * @param list<U> $items
+     * @return self<U>
+     * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
+     */
+    public static function create(
+        int $pageSize = 10,
+        mixed $cursor = null,
+        string $cursorColumn = 'id',
+        array $items = [],
+        bool $hasMore = false,
+    ): self {
+        return new self(
+            pageSize: max(1, $pageSize),
+            cursor: $cursor,
+            cursorColumn: $cursorColumn,
+            items: $items,
+            hasMore: $hasMore && $items !== [],
+        );
     }
 
     /**
@@ -74,13 +89,41 @@ final class FlowPaginator
      */
     public static function first(int $pageSize = 10, string $cursorColumn = 'id'): self
     {
-        return new self(
+        return self::create(
             pageSize: $pageSize,
             cursor: null,
             cursorColumn: $cursorColumn,
             items: [],
             hasMore: false,
         );
+    }
+
+    public function pageSize(): int
+    {
+        return $this->pageSize;
+    }
+
+    public function cursor(): mixed
+    {
+        return $this->cursor;
+    }
+
+    public function cursorColumn(): string
+    {
+        return $this->cursorColumn;
+    }
+
+    /**
+     * @return list<T>
+     */
+    public function items(): array
+    {
+        return $this->items;
+    }
+
+    public function hasMore(): bool
+    {
+        return $this->hasMore;
     }
 
     /**
@@ -135,7 +178,7 @@ final class FlowPaginator
      */
     public function withItems(array $items, bool $hasMore = false): self
     {
-        return new self(
+        return self::create(
             pageSize: $this->pageSize,
             cursor: $this->cursor,
             cursorColumn: $this->cursorColumn,
@@ -159,7 +202,7 @@ final class FlowPaginator
             ? null
             : self::cursorFrom($items[array_key_last($items)], $this->cursorColumn);
 
-        return new self(
+        return self::create(
             pageSize: $this->pageSize,
             cursor: $nextCursor,
             cursorColumn: $this->cursorColumn,
