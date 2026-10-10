@@ -11,6 +11,7 @@ Renamed from `migears/common`, and a breaking release in its own right. `URL` st
 - `MiGears\Utils\Str` and `MiGears\Utils\Arr` — both reimplemented helpers from `Illuminate\Support` (method names, parameter order, and edge-case behavior matched almost one to one). Duplicating an upstream library inside a utility package gave every consumer a second source of truth for the same behavior. Install `illuminate/support` or `symfony/string` if you need those helpers.
 - The `ext-mbstring` requirement, which only `Str` needed.
 - `MiGears\Utils\Date` — moved to `migears/i18n` as `LocalizedDate`. Dates are presented to a person in their own timezone and language, so the class now renders text through a translator there. See that package's CHANGELOG for its history.
+- `FlowPaginator::isFirstPage()` — the cursor cannot tell the first page from the last. `nextPage()` stores the cursor for the *next* fetch, and that cursor is null both at the start and once the sequence has ended, so the method misreported the last page as the first. Start from `FlowPaginator::first()` when you need the opening page.
 
 ### Changed
 
@@ -19,6 +20,7 @@ Renamed from `migears/common`, and a breaking release in its own right. `URL` st
 - `URL` query parsing no longer goes through `parse_str()`. Keys keep their original characters, so `?a.b=1` yields the key `a.b` instead of `a_b`. Bracket notation is no longer expanded: every key is flat and every value is a scalar.
 - `URL::parse()` scheme detection tightened from `[\w]+` to `[a-z][a-z0-9+.\-]*`, rejecting invalid schemes such as `1a://`.
 - `Paginator::firstPage()` returns 0 for an empty result set, matching `lastPage()`.
+- `FlowPaginator::hasMore()` reports false for an empty page even when constructed with `hasMore: true`, so a caller never reads "more pages" while holding no cursor to continue from. `toArray()` reports the same value.
 - `URL` validates the scheme in the constructor, so `new URL(scheme: '1a', ...)` and `withScheme('1a b')` are now rejected the same way `parse('1a://...')` already was.
 - `URL` validates the port (1–65535) and the host (an RFC 3986 reg-name, or a bracketed IP literal such as `[::1]`) in the constructor, so `:0`, `:-1`, `:70000`, a space, or a CRLF can no longer reach the output. `parse()` inherits both rules.
 - `URL` percent-encodes the path and fragment on input, leaving existing escape sequences intact, and treats an empty user or password as absent.

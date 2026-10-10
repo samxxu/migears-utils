@@ -163,7 +163,7 @@ $next->hasMore();           // whether there are more pages
 $next->toArray();           // for JSON response
 ```
 
-An empty page reports no next cursor: `nextCursor()` returns null when there are no items, whatever `hasMore` says. And when `hasMore` is true the last item must carry the cursor column, or the constructor throws — otherwise the paginator would claim more pages while holding a null cursor, and the next fetch would restart from the first page.
+An empty page ends the sequence: `hasMore()` reports false for it even when `hasMore: true` was passed, and `nextCursor()` returns null. A caller then never reads "more pages" while holding no cursor to continue from. When `hasMore` is true the last item must carry the cursor column, or the constructor throws.
 
 ## API Reference
 
@@ -210,7 +210,6 @@ An empty page reports no next cursor: `nextCursor()` returns null when there are
 | `FlowPaginator::first($size, $column)` | Create first-page paginator |
 | `pageSize()` / `cursor()` / `cursorColumn()` / `items()` / `hasMore()` | Read-only accessors |
 | `count()` / `isEmpty()` | Item count |
-| `isFirstPage()` | Whether first page |
 | `nextCursor()` | Cursor for next page |
 | `withItems($items, $hasMore)` | New paginator with items |
 | `nextPage($items, $hasMore)` | Advance to next cursor |
@@ -397,7 +396,7 @@ $next->hasMore();           // 是否还有更多页
 $next->toArray();           // 用于 JSON 响应
 ```
 
-空页不会给出下一游标：items 为空时 `nextCursor()` 一律返回 null，无论 `hasMore` 为何。而当 `hasMore` 为 true 时，末条必须带游标列，否则构造函数抛异常——否则分页器会一边声称还有更多页、一边握着 null 游标，下一次取数会回到首页。
+空页即序列结束：items 为空时即使传入 `hasMore: true`，`hasMore()` 也报 false，`nextCursor()` 返回 null。调用方因此不会遇到"声称还有更多页、却拿不出游标"的情形。而当 `hasMore` 为 true 时，末条必须带游标列，否则构造函数抛异常。
 
 ## API 参考
 
@@ -444,7 +443,6 @@ $next->toArray();           // 用于 JSON 响应
 | `FlowPaginator::first($size, $column)` | 创建首页分页器 |
 | `pageSize()` / `cursor()` / `cursorColumn()` / `items()` / `hasMore()` | 只读访问器 |
 | `count()` / `isEmpty()` | 条目数 |
-| `isFirstPage()` | 是否首页 |
 | `nextCursor()` | 下一页游标 |
 | `withItems($items, $hasMore)` | 带条目的新分页器 |
 | `nextPage($items, $hasMore)` | 前进到下一个游标 |

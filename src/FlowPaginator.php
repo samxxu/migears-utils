@@ -24,6 +24,9 @@ final class FlowPaginator
      * a null cursor means "from the start": reporting more pages without a
      * usable cursor would send the next fetch back to page one.
      *
+     * An empty page ends the sequence, so hasMore() reports false for it
+     * whatever $hasMore says.
+     *
      * @param int $pageSize Number of items per page
      * @param mixed $cursor Cursor value (typically last item's ID), null means "from start"
      * @param string $cursorColumn Name of the column used for cursor (e.g. "id")
@@ -91,9 +94,15 @@ final class FlowPaginator
         return $this->items;
     }
 
+    /**
+     * Whether there are more items after this page.
+     *
+     * False whenever the page is empty — an empty page ends the sequence — so a
+     * caller never reads "more pages" while holding no cursor to continue from.
+     */
     public function hasMore(): bool
     {
-        return $this->hasMore;
+        return $this->hasMore && $this->items !== [];
     }
 
     /**
@@ -110,14 +119,6 @@ final class FlowPaginator
     public function isEmpty(): bool
     {
         return $this->count() === 0;
-    }
-
-    /**
-     * Whether this is the first page (no cursor).
-     */
-    public function isFirstPage(): bool
-    {
-        return $this->cursor === null;
     }
 
     /**
@@ -204,7 +205,7 @@ final class FlowPaginator
             'pageSize' => $this->pageSize,
             'cursor' => $this->cursor,
             'cursorColumn' => $this->cursorColumn,
-            'hasMore' => $this->hasMore,
+            'hasMore' => $this->hasMore(),
             'items' => $this->items,
         ];
     }

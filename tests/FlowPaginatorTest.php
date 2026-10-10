@@ -80,22 +80,6 @@ class FlowPaginatorTest extends TestCase
         $this->assertFalse($paginator->isEmpty());
     }
 
-    // --- isFirstPage ---
-
-    public function testIsFirstPageWhenCursorNull(): void
-    {
-        $paginator = new FlowPaginator(cursor: null);
-
-        $this->assertTrue($paginator->isFirstPage());
-    }
-
-    public function testIsFirstPageWhenCursorSet(): void
-    {
-        $paginator = new FlowPaginator(cursor: 10);
-
-        $this->assertFalse($paginator->isFirstPage());
-    }
-
     // --- nextCursor ---
 
     public function testNextCursorWithArrayItems(): void
@@ -298,20 +282,21 @@ class FlowPaginatorTest extends TestCase
 
     // --- empty pages ---
 
-    public function testEmptyItemsKeepHasMoreAsGiven(): void
+    public function testEmptyPageForcesHasMoreOff(): void
     {
         $paginator = new FlowPaginator(items: [], hasMore: true);
 
-        $this->assertTrue($paginator->hasMore());
+        $this->assertFalse($paginator->hasMore());
+        $this->assertFalse($paginator->toArray()['hasMore']);
         $this->assertNull($paginator->nextCursor());
     }
 
-    public function testNextPageWithEmptyItemsAndHasMoreKeepsCursorNull(): void
+    public function testNextPageWithEmptyItemsAndHasMoreReportsNoMore(): void
     {
         $next = FlowPaginator::first(pageSize: 5)->nextPage([], true);
 
         $this->assertNull($next->cursor());
-        $this->assertTrue($next->hasMore());
+        $this->assertFalse($next->hasMore());
         $this->assertNull($next->nextCursor());
     }
 
