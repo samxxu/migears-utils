@@ -8,49 +8,25 @@ namespace MiGears\Utils;
  * Standard offset-based pagination data structure (DTO).
  *
  * Pure data object — no URL building, no template rendering. Every property is
- * private and readonly: a paginator is built once and never changes. Use
- * create() to build one; the constructor is not public.
+ * private and readonly: a paginator is built once and never changes.
  *
  * @template T
  */
 final class Paginator
 {
     /**
-     * @param int $pageSize Number of items per page (>= 1, guaranteed by create())
-     * @param int $currentPage Current page number (1-based, >= 1, guaranteed by create())
+     * @param int $pageSize Number of items per page
+     * @param int $currentPage Current page number (1-based)
      * @param int $total Total number of items across all pages
      * @param list<T> $items Items on the current page
      */
-    private function __construct(
-        private readonly int $pageSize,
-        private readonly int $currentPage,
-        private readonly int $total,
+    public function __construct(
+        private readonly int $pageSize = 10,
+        private readonly int $currentPage = 1,
+        private readonly int $total = 0,
         /** @var list<T> */
-        private readonly array $items,
+        private readonly array $items = [],
     ) {
-    }
-
-    /**
-     * Build a paginator, raising $pageSize and $currentPage to their lowest
-     * valid value (1), so a page size of 0 cannot divide by zero and a page
-     * number below 1 cannot produce a negative offset.
-     *
-     * @template U
-     * @param list<U> $items
-     * @return self<U>
-     */
-    public static function create(
-        int $pageSize = 10,
-        int $currentPage = 1,
-        int $total = 0,
-        array $items = [],
-    ): self {
-        return new self(
-            pageSize: max(1, $pageSize),
-            currentPage: max(1, $currentPage),
-            total: $total,
-            items: $items,
-        );
     }
 
     public function pageSize(): int
@@ -169,7 +145,7 @@ final class Paginator
      */
     public function withItems(array $items): self
     {
-        return self::create(
+        return new self(
             pageSize: $this->pageSize,
             currentPage: $this->currentPage,
             total: $this->total,

@@ -7,7 +7,6 @@ namespace MiGears\Utils\Tests;
 use PHPUnit\Framework\TestCase;
 use InvalidArgumentException;
 use MiGears\Utils\FlowPaginator;
-use MiGears\Utils\Paginator;
 
 class FlowPaginatorTest extends TestCase
 {
@@ -15,7 +14,7 @@ class FlowPaginatorTest extends TestCase
 
     public function testDefaultValues(): void
     {
-        $paginator = FlowPaginator::create();
+        $paginator = new FlowPaginator();
 
         $this->assertSame(10, $paginator->pageSize());
         $this->assertNull($paginator->cursor());
@@ -30,7 +29,7 @@ class FlowPaginatorTest extends TestCase
             ['id' => 1, 'created_at' => '2024-01-01'],
             ['id' => 2, 'created_at' => '2024-01-02'],
         ];
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             pageSize: 20,
             cursor: 5,
             cursorColumn: 'created_at',
@@ -62,21 +61,21 @@ class FlowPaginatorTest extends TestCase
 
     public function testCount(): void
     {
-        $paginator = FlowPaginator::create(items: [['id' => 1], ['id' => 2], ['id' => 3]]);
+        $paginator = new FlowPaginator(items: [['id' => 1], ['id' => 2], ['id' => 3]]);
 
         $this->assertSame(3, $paginator->count());
     }
 
     public function testIsEmptyTrue(): void
     {
-        $paginator = FlowPaginator::create();
+        $paginator = new FlowPaginator();
 
         $this->assertTrue($paginator->isEmpty());
     }
 
     public function testIsEmptyFalse(): void
     {
-        $paginator = FlowPaginator::create(items: [['id' => 1]]);
+        $paginator = new FlowPaginator(items: [['id' => 1]]);
 
         $this->assertFalse($paginator->isEmpty());
     }
@@ -85,14 +84,14 @@ class FlowPaginatorTest extends TestCase
 
     public function testIsFirstPageWhenCursorNull(): void
     {
-        $paginator = FlowPaginator::create(cursor: null);
+        $paginator = new FlowPaginator(cursor: null);
 
         $this->assertTrue($paginator->isFirstPage());
     }
 
     public function testIsFirstPageWhenCursorSet(): void
     {
-        $paginator = FlowPaginator::create(cursor: 10);
+        $paginator = new FlowPaginator(cursor: 10);
 
         $this->assertFalse($paginator->isFirstPage());
     }
@@ -107,7 +106,7 @@ class FlowPaginatorTest extends TestCase
             ['id' => 103],
         ];
 
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             pageSize: 3,
             cursor: 100,
             cursorColumn: 'id',
@@ -125,7 +124,7 @@ class FlowPaginatorTest extends TestCase
         $item2 = new \stdClass();
         $item2->id = 102;
 
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             pageSize: 2,
             cursor: 100,
             cursorColumn: 'id',
@@ -138,7 +137,7 @@ class FlowPaginatorTest extends TestCase
 
     public function testNextCursorEmptyItemsReturnsNull(): void
     {
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             cursor: 100,
             items: [],
             hasMore: true,
@@ -149,7 +148,7 @@ class FlowPaginatorTest extends TestCase
 
     public function testNextCursorNoMoreReturnsNull(): void
     {
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             cursor: 100,
             items: [['id' => 101]],
             hasMore: false,
@@ -165,7 +164,7 @@ class FlowPaginatorTest extends TestCase
             ['uuid' => 'bbb'],
         ];
 
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             cursorColumn: 'uuid',
             items: $items,
             hasMore: true,
@@ -178,7 +177,7 @@ class FlowPaginatorTest extends TestCase
 
     public function testWithItemsReturnsNewInstance(): void
     {
-        $paginator = FlowPaginator::create(pageSize: 20, cursor: 5, cursorColumn: 'id');
+        $paginator = new FlowPaginator(pageSize: 20, cursor: 5, cursorColumn: 'id');
         $items = [['id' => 6], ['id' => 7]];
         $newPaginator = $paginator->withItems($items, true);
 
@@ -252,7 +251,7 @@ class FlowPaginatorTest extends TestCase
 
     public function testToArray(): void
     {
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             pageSize: 10,
             cursor: 100,
             cursorColumn: 'id',
@@ -299,11 +298,11 @@ class FlowPaginatorTest extends TestCase
 
     // --- empty pages ---
 
-    public function testEmptyItemsForceHasMoreOff(): void
+    public function testEmptyItemsKeepHasMoreAsGiven(): void
     {
-        $paginator = FlowPaginator::create(items: [], hasMore: true);
+        $paginator = new FlowPaginator(items: [], hasMore: true);
 
-        $this->assertFalse($paginator->hasMore());
+        $this->assertTrue($paginator->hasMore());
         $this->assertNull($paginator->nextCursor());
     }
 
@@ -312,26 +311,8 @@ class FlowPaginatorTest extends TestCase
         $next = FlowPaginator::first(pageSize: 5)->nextPage([], true);
 
         $this->assertNull($next->cursor());
-        $this->assertFalse($next->hasMore());
+        $this->assertTrue($next->hasMore());
         $this->assertNull($next->nextCursor());
-    }
-
-    // --- page size ---
-
-    public function testPageSizeIsRaisedToOne(): void
-    {
-        $this->assertSame(1, (FlowPaginator::create(pageSize: 0))->pageSize());
-        $this->assertSame(1, (FlowPaginator::create(pageSize: -5))->pageSize());
-        $this->assertSame(1, FlowPaginator::first(pageSize: 0)->pageSize());
-    }
-
-    public function testPageSizeAgreesWithPaginator(): void
-    {
-        // Two paginators in one package must read the same argument the same way.
-        $this->assertSame(
-            (Paginator::create(pageSize: 0))->pageSize(),
-            (FlowPaginator::create(pageSize: 0))->pageSize(),
-        );
     }
 
     // --- unusable cursors ---
@@ -341,7 +322,7 @@ class FlowPaginatorTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('no "id" value');
 
-        FlowPaginator::create(items: [['name' => 'no id column']], hasMore: true);
+        new FlowPaginator(items: [['name' => 'no id column']], hasMore: true);
     }
 
     public function testObjectItemWithoutCursorPropertyThrows(): void
@@ -352,14 +333,14 @@ class FlowPaginatorTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('no "id" value');
 
-        FlowPaginator::create(items: [$item], hasMore: true);
+        new FlowPaginator(items: [$item], hasMore: true);
     }
 
     public function testNullCursorValueCountsAsUnusable(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
-        FlowPaginator::create(items: [['id' => null]], hasMore: true);
+        new FlowPaginator(items: [['id' => null]], hasMore: true);
     }
 
     public function testExceptionNamesTheConfiguredColumn(): void
@@ -367,7 +348,7 @@ class FlowPaginatorTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('no "uuid" value');
 
-        FlowPaginator::create(cursorColumn: 'uuid', items: [['id' => 1]], hasMore: true);
+        new FlowPaginator(cursorColumn: 'uuid', items: [['id' => 1]], hasMore: true);
     }
 
     public function testNextPageThrowsWhenLastItemLacksCursorValue(): void
@@ -391,7 +372,7 @@ class FlowPaginatorTest extends TestCase
     public function testHasMoreAlwaysComesWithUsableCursor(): void
     {
         // The invariant the exception protects: hasMore implies a non-null cursor.
-        $paginator = FlowPaginator::create(
+        $paginator = new FlowPaginator(
             pageSize: 2,
             cursor: 6,
             items: [['id' => 7], ['id' => 8]],
@@ -404,7 +385,7 @@ class FlowPaginatorTest extends TestCase
 
     public function testItemsWithoutCursorValueAreFineWhenHasMoreIsFalse(): void
     {
-        $paginator = FlowPaginator::create(items: [['name' => 'no id column']], hasMore: false);
+        $paginator = new FlowPaginator(items: [['name' => 'no id column']], hasMore: false);
 
         $this->assertFalse($paginator->hasMore());
         $this->assertNull($paginator->nextCursor());

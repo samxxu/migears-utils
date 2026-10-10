@@ -130,7 +130,7 @@ Bracket notation is not expanded, so every key is flat and every value is a scal
 ```php
 use MiGears\Utils\Paginator;
 
-$paginator = Paginator::create(
+$paginator = new Paginator(
     pageSize: 10,
     currentPage: 2,
     total: 53,
@@ -146,7 +146,7 @@ $paginator->offset();       // 10
 $paginator->toArray();      // for JSON response
 ```
 
-`pageSize` and `currentPage` are raised to 1 when they arrive lower, so a page size of 0 cannot divide by zero and a page number below 1 cannot produce a negative offset. `firstPage()` and `lastPage()` both return 0 when there are no pages.
+`firstPage()` and `lastPage()` both return 0 when there are no pages.
 
 ### FlowPaginator — Cursor-Based Pagination
 
@@ -163,7 +163,7 @@ $next->hasMore();           // whether there are more pages
 $next->toArray();           // for JSON response
 ```
 
-An empty page ends the sequence: passing `hasMore: true` together with no items stores `hasMore` as false. Otherwise the paginator would claim more pages while holding a null cursor, and the next fetch would restart from the first page.
+An empty page reports no next cursor: `nextCursor()` returns null when there are no items, whatever `hasMore` says. And when `hasMore` is true the last item must carry the cursor column, or the constructor throws — otherwise the paginator would claim more pages while holding a null cursor, and the next fetch would restart from the first page.
 
 ## API Reference
 
@@ -192,7 +192,6 @@ An empty page ends the sequence: passing `hasMore: true` together with no items 
 
 | Method | Description |
 |--------|-------------|
-| `Paginator::create($size, $page, $total, $items)` | Build a paginator — raises size/page to 1 |
 | `pageSize()` / `currentPage()` / `total()` / `items()` | Read-only accessors |
 | `totalPages()` | Total page count |
 | `hasPrev()` / `hasNext()` | Page existence |
@@ -209,7 +208,6 @@ An empty page ends the sequence: passing `hasMore: true` together with no items 
 | Method | Description |
 |--------|-------------|
 | `FlowPaginator::first($size, $column)` | Create first-page paginator |
-| `FlowPaginator::create($size, $cursor, $column, $items, $hasMore)` | Build a paginator — raises size to 1 |
 | `pageSize()` / `cursor()` / `cursorColumn()` / `items()` / `hasMore()` | Read-only accessors |
 | `count()` / `isEmpty()` | Item count |
 | `isFirstPage()` | Whether first page |
@@ -366,7 +364,7 @@ URL::parse('https://example.com/?a.b=1&c%20d=2')->query();
 ```php
 use MiGears\Utils\Paginator;
 
-$paginator = Paginator::create(
+$paginator = new Paginator(
     pageSize: 10,
     currentPage: 2,
     total: 53,
@@ -382,7 +380,7 @@ $paginator->offset();       // 10
 $paginator->toArray();      // 用于 JSON 响应
 ```
 
-`pageSize` 与 `currentPage` 传入小于 1 的值时会被抬到 1，因此 pageSize 为 0 不会除零崩溃，页码小于 1 也不会产生负的 offset。无页可翻时 `firstPage()` 与 `lastPage()` 都返回 0。
+无页可翻时 `firstPage()` 与 `lastPage()` 都返回 0。
 
 ### FlowPaginator — 游标分页
 
@@ -399,7 +397,7 @@ $next->hasMore();           // 是否还有更多页
 $next->toArray();           // 用于 JSON 响应
 ```
 
-空页即序列结束：items 为空时即使传入 `hasMore: true` 也会存为 false。否则分页器会一边声称还有更多页、一边握着 null 游标，下一次取数会回到首页。
+空页不会给出下一游标：items 为空时 `nextCursor()` 一律返回 null，无论 `hasMore` 为何。而当 `hasMore` 为 true 时，末条必须带游标列，否则构造函数抛异常——否则分页器会一边声称还有更多页、一边握着 null 游标，下一次取数会回到首页。
 
 ## API 参考
 
@@ -428,7 +426,6 @@ $next->toArray();           // 用于 JSON 响应
 
 | 方法 | 说明 |
 |------|------|
-| `Paginator::create($size, $page, $total, $items)` | 构建分页器 — size/page 提升至 1 |
 | `pageSize()` / `currentPage()` / `total()` / `items()` | 只读访问器 |
 | `totalPages()` | 总页数 |
 | `hasPrev()` / `hasNext()` | 是否有上/下一页 |
@@ -445,7 +442,6 @@ $next->toArray();           // 用于 JSON 响应
 | 方法 | 说明 |
 |------|------|
 | `FlowPaginator::first($size, $column)` | 创建首页分页器 |
-| `FlowPaginator::create($size, $cursor, $column, $items, $hasMore)` | 构建分页器 — size 提升至 1 |
 | `pageSize()` / `cursor()` / `cursorColumn()` / `items()` / `hasMore()` | 只读访问器 |
 | `count()` / `isEmpty()` | 条目数 |
 | `isFirstPage()` | 是否首页 |

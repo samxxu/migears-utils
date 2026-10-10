@@ -18,8 +18,6 @@ Renamed from `migears/common`, and a breaking release in its own right. `URL` st
 - `URL` constructor: `$scheme` and `$host` are both required. Previously `$host` defaulted to `''` and then threw on that empty value — a default that could never be used.
 - `URL` query parsing no longer goes through `parse_str()`. Keys keep their original characters, so `?a.b=1` yields the key `a.b` instead of `a_b`. Bracket notation is no longer expanded: every key is flat and every value is a scalar.
 - `URL::parse()` scheme detection tightened from `[\w]+` to `[a-z][a-z0-9+.\-]*`, rejecting invalid schemes such as `1a://`.
-- `Paginator` raises `$pageSize` and `$currentPage` to 1 when given lower values, so a page size of 0 can no longer divide by zero and a page number below 1 can no longer produce a negative `offset()`.
-- `FlowPaginator` raises `$pageSize` to 1 as well. The two paginators had normalised the same argument in opposite directions, so one package read `pageSize: 0` two ways.
 - `Paginator::firstPage()` returns 0 for an empty result set, matching `lastPage()`.
 - `URL` validates the scheme in the constructor, so `new URL(scheme: '1a', ...)` and `withScheme('1a b')` are now rejected the same way `parse('1a://...')` already was.
 - `URL` validates the port (1–65535) and the host (an RFC 3986 reg-name, or a bracketed IP literal such as `[::1]`) in the constructor, so `:0`, `:-1`, `:70000`, a space, or a CRLF can no longer reach the output. `parse()` inherits both rules.

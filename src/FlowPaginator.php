@@ -13,71 +13,41 @@ use InvalidArgumentException;
  * The cursor is typically the ID of the last item in the current set.
  *
  * Every property is private and readonly: a paginator is built once and never
- * changes. Use create() (or first() for the opening page) to build one; the
- * constructor is not public.
+ * changes.
  *
  * @template T
  */
 final class FlowPaginator
 {
     /**
-     * Two invariants hold by construction, both enforced by create().
+     * When $hasMore is true the last item must carry the cursor column, because
+     * a null cursor means "from the start": reporting more pages without a
+     * usable cursor would send the next fetch back to page one.
      *
-     * $pageSize is raised to its lowest valid value (1), the same rule
-     * Paginator applies, so the two DTOs agree on what a page size means.
-     *
-     * $hasMore is forced to false when $items is empty — an empty page ends the
-     * sequence. When $hasMore is true the last item must carry the cursor
-     * column, because a null cursor means "from the start": reporting more pages
-     * without a usable cursor would send the next fetch back to page one.
-     *
-     * @param int $pageSize Number of items per page (>= 1, guaranteed by create())
+     * @param int $pageSize Number of items per page
      * @param mixed $cursor Cursor value (typically last item's ID), null means "from start"
      * @param string $cursorColumn Name of the column used for cursor (e.g. "id")
      * @param list<T> $items Items on the current page
      * @param bool $hasMore Whether there are more items after this page
      * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
      */
-    private function __construct(
-        private readonly int $pageSize,
-        private readonly mixed $cursor,
-        private readonly string $cursorColumn,
+    public function __construct(
+        private readonly int $pageSize = 10,
+        private readonly mixed $cursor = null,
+        private readonly string $cursorColumn = 'id',
         /** @var list<T> */
-        private readonly array $items,
-        private readonly bool $hasMore,
+        private readonly array $items = [],
+        private readonly bool $hasMore = false,
     ) {
-        if ($this->hasMore && self::cursorFrom($items[array_key_last($items)], $cursorColumn) === null) {
+        if ($this->hasMore && $this->items !== []
+            && self::cursorFrom($this->items[array_key_last($this->items)], $cursorColumn) === null
+        ) {
             throw new InvalidArgumentException(
                 "Cannot report more pages: the last item has no \"{$cursorColumn}\" value, and a null cursor "
                 . 'means "from the start", so the next fetch would restart the page. '
                 . 'Keep the cursor column in the items, or pass hasMore: false.',
             );
         }
-    }
-
-    /**
-     * Build a paginator, raising $pageSize to its lowest valid value (1) and
-     * forcing $hasMore to false when there are no items.
-     *
-     * @template U
-     * @param list<U> $items
-     * @return self<U>
-     * @throws InvalidArgumentException When $hasMore is true and the last item has no cursor value
-     */
-    public static function create(
-        int $pageSize = 10,
-        mixed $cursor = null,
-        string $cursorColumn = 'id',
-        array $items = [],
-        bool $hasMore = false,
-    ): self {
-        return new self(
-            pageSize: max(1, $pageSize),
-            cursor: $cursor,
-            cursorColumn: $cursorColumn,
-            items: $items,
-            hasMore: $hasMore && $items !== [],
-        );
     }
 
     /**
@@ -89,7 +59,7 @@ final class FlowPaginator
      */
     public static function first(int $pageSize = 10, string $cursorColumn = 'id'): self
     {
-        return self::create(
+        return new self(
             pageSize: $pageSize,
             cursor: null,
             cursorColumn: $cursorColumn,
@@ -178,7 +148,7 @@ final class FlowPaginator
      */
     public function withItems(array $items, bool $hasMore = false): self
     {
-        return self::create(
+        return new self(
             pageSize: $this->pageSize,
             cursor: $this->cursor,
             cursorColumn: $this->cursorColumn,
@@ -202,7 +172,7 @@ final class FlowPaginator
             ? null
             : self::cursorFrom($items[array_key_last($items)], $this->cursorColumn);
 
-        return self::create(
+        return new self(
             pageSize: $this->pageSize,
             cursor: $nextCursor,
             cursorColumn: $this->cursorColumn,
